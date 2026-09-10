@@ -85,6 +85,8 @@ function scrollToId(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 }
 
+const WHATSAPP_URL = "https://wa.me/254729053520?text=Hi%20AgentPlus%2C%20I%20want%20to%20learn%20more.";
+
 export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -134,9 +136,8 @@ export default function Home() {
   };
 
   const showDemo = () => {
-    toast.success("Demo request received", {
-      description: "We’ll show you how AgentPlus fits your workflow.",
-    });
+    window.open(WHATSAPP_URL, "_blank", "noopener,noreferrer");
+    toast.success("Opening WhatsApp", { description: "The AgentPlus team is ready to help." });
   };
 
   const startFree = () => {
