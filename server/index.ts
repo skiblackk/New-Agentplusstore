@@ -27,8 +27,9 @@ type Order = Record<string, unknown> & { id: string; timestamp?: string; status?
 type Visitor = Record<string, unknown> & { id: string };
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
-type SupabaseRow = { id?: string | number; payload?: Order | Visitor; messages?: ChatMessage[]; token?: string; expires_at?: string };
-const memory = { orders: [] as Order[], visitors: [] as Visitor[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
+type SupabaseRow = { id?: string | number; payload?: Order | Visitor | WhatsAppClick; messages?: ChatMessage[]; token?: string; expires_at?: string };
+type WhatsAppClick = { id: string; timestamp: string; service: string; visitorId?: string; page?: string; device?: string; referrer?: string };
+const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
 
 async function supabaseRequest<T = SupabaseRow>(tablePath: string, init: RequestInit = {}) {
   if (!supabaseEnabled) throw new Error("Supabase is not configured");
@@ -80,6 +81,15 @@ async function deleteVisitor(id: string) {
   memory.visitors = memory.visitors.filter((row) => row.id !== id);
   if (supabaseEnabled) { await supabaseRequest(`agentplus_visitors?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }); return; }
   if (redisEnabled) { const rows = (await getVisitors()).filter((row) => row.id !== id); await redis("DEL", "ap:visitors"); for (const row of rows.reverse()) await redis("LPUSH", "ap:visitors", JSON.stringify(row)); }
+}
+
+async function getWhatsappClicks() {
+  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: WhatsAppClick }>>("agentplus_whatsapp_clicks?select=payload&order=created_at.desc&limit=5000"); return rows.map((row) => row.payload); } catch { /* schema may not be applied yet */ } }
+  return memory.whatsappClicks;
+}
+async function persistWhatsappClick(click: WhatsAppClick) {
+  memory.whatsappClicks = [click, ...memory.whatsappClicks].slice(0, 5000);
+  if (supabaseEnabled) { try { await supabaseRequest("agentplus_whatsapp_clicks", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: click.id, payload: click, created_at: click.timestamp }) }); } catch { console.warn("Supabase WhatsApp clicks table is not ready; using fallback storage."); } }
 }
 
 async function getAtlas() {
@@ -135,6 +145,10 @@ app.delete("/api/orders", requireAuth, async (req, res) => { const id = req.body
 app.get("/api/visitors", requireAuth, async (_req, res) => res.json({ visitors: await getVisitors() }));
 app.delete("/api/visitors", requireAuth, async (req, res) => { const id = req.body?.id as string; if (!id) return res.status(400).json({ error: "Missing id" }); await deleteVisitor(id); res.json({ ok: true }); });
 app.post("/api/track", async (req, res) => { const visitor = req.body?.visitor as Visitor; if (!visitor?.id) return res.status(400).json({ error: "Missing visitor" }); try { await persistVisitor(visitor); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
+app.post("/api/whatsapp-click", async (req, res) => { const body = req.body || {}; const click: WhatsAppClick = { id: `wa_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: new Date().toISOString(), service: typeof body.service === "string" ? body.service.slice(0, 80) : "General", visitorId: typeof body.visitorId === "string" ? body.visitorId.slice(0, 120) : undefined, page: typeof body.page === "string" ? body.page.slice(0, 120) : undefined, device: typeof body.device === "string" ? body.device.slice(0, 40) : undefined, referrer: typeof body.referrer === "string" ? body.referrer.slice(0, 240) : undefined }; try { await persistWhatsappClick(click); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
+app.get("/api/whatsapp-clicks", requireAuth, async (_req, res) => res.json({ clicks: await getWhatsappClicks() }));
+app.post("/api/whatsapp-click", async (req, res) => { const body = req.body || {}; const click: WhatsAppClick = { id: `wa_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: new Date().toISOString(), service: typeof body.service === "string" ? body.service.slice(0, 80) : "General", visitorId: typeof body.visitorId === "string" ? body.visitorId.slice(0, 120) : undefined, page: typeof body.page === "string" ? body.page.slice(0, 120) : undefined, device: typeof body.device === "string" ? body.device.slice(0, 40) : undefined, referrer: typeof body.referrer === "string" ? body.referrer.slice(0, 240) : undefined }; try { await persistWhatsappClick(click); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
+app.get("/api/whatsapp-clicks", requireAuth, async (_req, res) => res.json({ clicks: await getWhatsappClicks() }));
 
 app.get("/api/atlas-memory", requireAuth, async (_req, res) => res.json({ messages: await getAtlas() }));
 app.post("/api/atlas-memory", requireAuth, async (req, res) => { await saveAtlas(Array.isArray(req.body?.messages) ? req.body.messages : []); res.json({ ok: true }); });

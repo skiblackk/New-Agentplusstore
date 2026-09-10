@@ -24,12 +24,20 @@ create table if not exists public.agentplus_memory (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.agentplus_whatsapp_clicks (
+  id text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists agentplus_orders_created_at_idx on public.agentplus_orders (created_at desc);
 create index if not exists agentplus_visitors_created_at_idx on public.agentplus_visitors (created_at desc);
 create index if not exists agentplus_sessions_expires_at_idx on public.agentplus_sessions (expires_at);
+create index if not exists agentplus_whatsapp_clicks_created_at_idx on public.agentplus_whatsapp_clicks (created_at desc);
 
 -- The server uses the service-role key, so public browser access stays disabled.
 alter table public.agentplus_orders enable row level security;
 alter table public.agentplus_visitors enable row level security;
 alter table public.agentplus_sessions enable row level security;
 alter table public.agentplus_memory enable row level security;
+alter table public.agentplus_whatsapp_clicks enable row level security;
