@@ -138,7 +138,8 @@ export default function Home() {
 
   const openWhatsApp = (service = "AgentPlus") => {
     const visitorId = localStorage.getItem("agentplus_visitor_id") || undefined;
-    void fetch("/api/whatsapp-click", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, visitorId, page: window.location.pathname, device: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop", referrer: document.referrer }) }).catch(() => undefined);
+    const params = new URLSearchParams(window.location.search);
+    void fetch("/api/whatsapp-click", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, visitorId, page: window.location.pathname, device: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop", referrer: document.referrer, campaign: params.get("utm_campaign") || "Direct", source: params.get("utm_source") || document.referrer || "Direct", medium: params.get("utm_medium") || "none", content: params.get("utm_content") || undefined }) }).catch(() => undefined);
     window.open(whatsappUrl(service), "_blank", "noopener,noreferrer");
     toast.success("Opening WhatsApp", { description: "The AgentPlus team is ready to help." });
   };
@@ -179,7 +180,6 @@ export default function Home() {
           </nav>
 
           <div className="nav-actions">
-            <a className="login-link" href="/admin">Admin</a>
             <button className="button button-small button-lime" onClick={startFree}>Get started <ArrowUpRight size={15} /></button>
             <button className="mobile-menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>
               {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -266,7 +266,7 @@ export default function Home() {
 
       <section className="final-cta"><div className="container final-cta-inner" data-reveal><div className="final-cta-copy"><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Make room for better work</div><h2>Your next<br /><em>good idea</em><br />is waiting.</h2><button className="button button-dark button-large" onClick={startFree}>Get started free <ArrowUpRight size={18} /></button></div><div className="cta-scribble" aria-hidden="true"><svg viewBox="0 0 320 280" fill="none"><path d="M25 195C72 239 137 265 205 245C270 226 308 168 286 114C263 57 185 36 135 59C91 80 74 124 89 160C107 203 171 214 214 187C252 162 258 111 231 85" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M213 76L230 84L221 101" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="90" cy="160" r="5" fill="currentColor" /><circle cx="205" cy="245" r="5" fill="currentColor" /></svg></div></div></section>
 
-      <footer className="site-footer"><div className="container footer-top"><button className="brand footer-brand" onClick={() => goTo("top")}><BrandMark /><span>agent<span className="brand-plus">plus</span></span></button><div className="footer-links"><div><span className="footer-label">Explore</span><button onClick={() => goTo("why")}>Why AgentPlus</button><button onClick={() => goTo("agents")}>Agents</button><a href="/services">Services</a><button onClick={() => goTo("plans")}>Pricing</button></div><div><span className="footer-label">Company</span><a href="/about">About</a><a href="/blog">Field notes</a><a href="/contact">Contact</a><a href="/admin">Command Center</a></div><div><span className="footer-label">Say hello</span><a href="mailto:hello@agentplus.store">hello@agentplus.store</a><a href="#faq">FAQ</a><a href="#top">Back to top ↑</a></div></div></div><div className="container footer-bottom"><span>© 2026 AgentPlus</span><span>Built for better work, not more work.</span><div><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
+      <footer className="site-footer"><div className="container footer-top"><button className="brand footer-brand" onClick={() => goTo("top")}><BrandMark /><span>agent<span className="brand-plus">plus</span></span></button><div className="footer-links"><div><span className="footer-label">Explore</span><button onClick={() => goTo("why")}>Why AgentPlus</button><button onClick={() => goTo("agents")}>Agents</button><a href="/services">Services</a><button onClick={() => goTo("plans")}>Pricing</button></div><div><span className="footer-label">Company</span><a href="/about">About</a><a href="/blog">Field notes</a><a href="/contact">Contact</a></div><div><span className="footer-label">Say hello</span><a href="mailto:hello@agentplus.store">hello@agentplus.store</a><a href="#faq">FAQ</a><a href="#top">Back to top ↑</a></div></div></div><div className="container footer-bottom"><span>© 2026 AgentPlus</span><span>Built for better work, not more work.</span><div><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
       <Chatbot />
     </main>
   );

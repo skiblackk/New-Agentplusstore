@@ -8,7 +8,7 @@ type Recommendation = { requirements: string; suggestedPackage: string; suggeste
 const welcome: Message = { role: "assistant", content: "Hi — I’m Aria from AgentPlus. What is taking your team too much time right now: customer replies, lead capture, support, or operations?" };
 const quickReplies = ["I need more leads", "Automate customer support", "Tell me about pricing"];
 function whatsappUrl(service: string) { return `https://wa.me/254729053520?text=${encodeURIComponent(`Hi AgentPlus, I’m interested in ${service}. I’d like to learn how it could help my business.`)}`; }
-function trackWhatsApp(service: string) { void fetch("/api/whatsapp-click", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, visitorId: localStorage.getItem("agentplus_visitor_id") || undefined, page: window.location.pathname, device: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop", referrer: document.referrer }) }).catch(() => undefined); }
+function trackWhatsApp(service: string) { const params = new URLSearchParams(window.location.search); void fetch("/api/whatsapp-click", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, visitorId: localStorage.getItem("agentplus_visitor_id") || undefined, page: window.location.pathname, device: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop", referrer: document.referrer, campaign: params.get("utm_campaign") || "Direct", source: params.get("utm_source") || document.referrer || "Direct", medium: params.get("utm_medium") || "none", content: params.get("utm_content") || undefined }) }).catch(() => undefined); }
 
 export default function Chatbot() {
   const [open, setOpen] = useState(false);
