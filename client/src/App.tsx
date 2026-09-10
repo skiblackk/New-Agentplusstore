@@ -10,6 +10,7 @@ import About from "./pages/About";
 import Contact from "./pages/Contact";
 import Blog from "./pages/Blog";
 import Legal from "./pages/Legal";
+import Admin from "./pages/Admin";
 
 
 function Router() {
@@ -22,6 +23,7 @@ function Router() {
       <Route path={"/blog"} component={Blog} />
       <Route path={"/privacy"}>{() => <Legal type="privacy" />}</Route>
       <Route path={"/terms"}>{() => <Legal type="terms" />}</Route>
+      <Route path={"/admin"} component={Admin} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}
       <Route component={NotFound} />
