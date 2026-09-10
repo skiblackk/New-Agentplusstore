@@ -107,6 +107,27 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const storageKey = "agentplus_visitor_id";
+    const visitorId = localStorage.getItem(storageKey) || `vis_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(storageKey, visitorId);
+    void fetch("/api/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visitor: {
+        id: visitorId,
+        timestamp: new Date().toISOString(),
+        device: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop",
+        browser: navigator.userAgent,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        pagesVisited: [{ page: window.location.pathname, title: document.title, time: new Date().toISOString(), duration: 0 }],
+        servicesViewed: [],
+        duration: 0,
+        referrer: document.referrer,
+      } }),
+    }).catch(() => undefined);
+  }, []);
+
   const goTo = (id: string) => {
     setMenuOpen(false);
     scrollToId(id);
@@ -153,7 +174,7 @@ export default function Home() {
           </nav>
 
           <div className="nav-actions">
-            <button className="login-link" onClick={() => toast("Your workspace is coming soon", { description: "Sign-in will be connected to your AgentPlus account." })}>Log in</button>
+            <a className="login-link" href="/admin">Admin</a>
             <button className="button button-small button-lime" onClick={startFree}>Get started <ArrowUpRight size={15} /></button>
             <button className="mobile-menu-button" onClick={() => setMenuOpen((open) => !open)} aria-label={menuOpen ? "Close navigation" : "Open navigation"}>
               {menuOpen ? <X size={22} /> : <Menu size={22} />}

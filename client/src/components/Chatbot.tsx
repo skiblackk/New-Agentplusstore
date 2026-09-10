@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { Bot, ChevronDown, MessageCircle, Send, Sparkles, X } from "lucide-react";
 
 type Message = { role: "user" | "assistant"; content: string };
@@ -14,6 +15,11 @@ export default function Chatbot() {
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [lead, setLead] = useState({ name: "", email: "", phone: "" });
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setOpen(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   async function send() {
     const content = input.trim();
@@ -33,7 +39,7 @@ export default function Chatbot() {
     finally { setLoading(false); }
   }
 
-  async function submitLead(event: React.FormEvent) {
+  async function submitLead(event: FormEvent) {
     event.preventDefault();
     if (!recommendation || !lead.name || !lead.email) return;
     const response = await fetch("/api/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName: lead.name, customerEmail: lead.email, customerPhone: lead.phone, requirements: recommendation.requirements, suggestedPackage: recommendation.suggestedPackage, suggestedPrice: recommendation.suggestedPrice, packageReasoning: recommendation.packageReasoning, source: "chatbot" }) });
