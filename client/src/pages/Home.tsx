@@ -147,8 +147,8 @@ export default function Home() {
 
   const startFree = () => {
     goTo("plans");
-    toast("Start with the free plan", {
-      description: "No credit card required. Pick an agent and make it yours.",
+    toast("Choose your starting point", {
+      description: "Review the AgentPlus packages and contact the team about the right fit.",
     });
   };
 
@@ -196,7 +196,7 @@ export default function Home() {
             <p className="hero-lede">AgentPlus gives ambitious teams practical AI teammates that think clearly, move quickly, and get better with every handoff.</p>
             <div className="hero-actions">
               <button className="button button-lime button-large" onClick={startFree}>Explore the agents <ArrowUpRight size={18} /></button>
-              <button className="text-button light-button" onClick={showDemo}><span className="play-icon">▶</span> Watch the 90 sec tour</button>
+              <button className="text-button light-button" onClick={showDemo}><span className="play-icon">▶</span> Talk through a rollout</button>
             </div>
             <div className="hero-proof">
               <div className="avatar-stack" aria-hidden="true">
@@ -248,7 +248,7 @@ export default function Home() {
       <section className="section dark-section agents-section" id="agents">
         <div className="container">
           <div className="section-heading split-heading agents-heading" data-reveal><div><div className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> The AgentPlus lineup</div><h2>Small team.<br /><em>Big output.</em></h2></div><div className="heading-aside"><p>Pick a specialist for the work that slows you down, then make it your own. No prompt gymnastics required.</p><button className="text-button light-button" onClick={showDemo}>See how it works <ArrowUpRight size={16} /></button></div></div>
-          <div className="agents-grid" data-reveal="stagger">{agents.map((agent) => { const Icon = agent.icon; return <article className={`agent-card agent-${agent.accent}`} key={agent.name}><div className="agent-card-top"><div className="agent-icon"><Icon size={21} /></div><span className="agent-category">{agent.category}</span><ArrowUpRight className="agent-arrow" size={18} /></div><div className="agent-illustration"><div className="illustration-core"><Icon size={31} /></div><div className="illustration-orbit orbit-a" /><div className="illustration-orbit orbit-b" /></div><h3>{agent.name}</h3><p>{agent.description}</p><div className="agent-meta"><span className="agent-live"><span /> Ready to run</span><span>{agent.meta}</span></div></article> })}</div>
+          <div className="agents-grid" data-reveal="stagger">{agents.map((agent) => { const Icon = agent.icon; return <article className={`agent-card agent-${agent.accent}`} key={agent.name}><div className="agent-card-top"><div className="agent-icon"><Icon size={21} /></div><span className="agent-category">{agent.category}</span><ArrowUpRight className="agent-arrow" size={18} /></div><div className="agent-illustration"><div className="illustration-core"><Icon size={31} /></div><div className="illustration-orbit orbit-a" /><div className="illustration-orbit orbit-b" /></div><h3>{agent.name}</h3><p>{agent.description}</p><div className="agent-meta"><span className="agent-live"><span /> Ready to run</span><span>{agent.meta}</span></div><button className="agent-action" onClick={() => openWhatsApp(agent.name)} aria-label={`Discuss ${agent.name} agent`}>Discuss {agent.name} <ArrowUpRight size={14} /></button></article> })}</div>
         </div>
       </section>
 
@@ -264,7 +264,7 @@ export default function Home() {
 
       <section className="section faq-section" id="faq"><div className="container faq-layout" data-reveal><div><div className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> A few good questions</div><h2>Good to<br /><em>know.</em></h2><p>Still curious? <button className="inline-link" onClick={showDemo}>Talk to a human <ArrowUpRight size={14} /></button></p></div><div className="faq-list">{faqs.map((faq, index) => <div className={`faq-item ${openFaq === index ? "is-open" : ""}`} key={faq.question}><button className="faq-question" onClick={() => setOpenFaq(openFaq === index ? null : index)} aria-expanded={openFaq === index}><span>{faq.question}</span>{openFaq === index ? <Minus size={18} /> : <Plus size={18} />}</button>{openFaq === index && <p className="faq-answer">{faq.answer}</p>}</div>)}</div></div></section>
 
-      <section className="final-cta"><div className="container final-cta-inner" data-reveal><div className="final-cta-copy"><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Make room for better work</div><h2>Your next<br /><em>good idea</em><br />is waiting.</h2><button className="button button-dark button-large" onClick={startFree}>Get started free <ArrowUpRight size={18} /></button></div><div className="cta-scribble" aria-hidden="true"><svg viewBox="0 0 320 280" fill="none"><path d="M25 195C72 239 137 265 205 245C270 226 308 168 286 114C263 57 185 36 135 59C91 80 74 124 89 160C107 203 171 214 214 187C252 162 258 111 231 85" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M213 76L230 84L221 101" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="90" cy="160" r="5" fill="currentColor" /><circle cx="205" cy="245" r="5" fill="currentColor" /></svg></div></div></section>
+      <section className="final-cta"><div className="container final-cta-inner" data-reveal><div className="final-cta-copy"><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Make room for better work</div><h2>Your next<br /><em>good idea</em><br />is waiting.</h2><button className="button button-dark button-large" onClick={startFree}>Explore your starting point <ArrowUpRight size={18} /></button></div><div className="cta-scribble" aria-hidden="true"><svg viewBox="0 0 320 280" fill="none"><path d="M25 195C72 239 137 265 205 245C270 226 308 168 286 114C263 57 185 36 135 59C91 80 74 124 89 160C107 203 171 214 214 187C252 162 258 111 231 85" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M213 76L230 84L221 101" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><circle cx="90" cy="160" r="5" fill="currentColor" /><circle cx="205" cy="245" r="5" fill="currentColor" /></svg></div></div></section>
 
       <footer className="site-footer"><div className="container footer-top"><button className="brand footer-brand" onClick={() => goTo("top")}><BrandMark /><span>agent<span className="brand-plus">plus</span></span></button><div className="footer-links"><div><span className="footer-label">Explore</span><button onClick={() => goTo("why")}>Why AgentPlus</button><button onClick={() => goTo("agents")}>Agents</button><a href="/services">Services</a><button onClick={() => goTo("plans")}>Pricing</button></div><div><span className="footer-label">Company</span><a href="/about">About</a><a href="/blog">Field notes</a><a href="/contact">Contact</a></div><div><span className="footer-label">Say hello</span><a href="mailto:hello@agentplus.store">hello@agentplus.store</a><a href="#faq">FAQ</a><a href="#top">Back to top ↑</a></div></div></div><div className="container footer-bottom"><span>© 2026 AgentPlus</span><span>Built for better work, not more work.</span><div><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
       <Chatbot />
