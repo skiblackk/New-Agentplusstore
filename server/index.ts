@@ -29,7 +29,8 @@ type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
 type SupabaseRow = { id?: string | number; payload?: Order | Visitor | WhatsAppClick; messages?: ChatMessage[]; token?: string; expires_at?: string };
 type WhatsAppClick = { id: string; timestamp: string; service: string; visitorId?: string; page?: string; device?: string; referrer?: string; campaign?: string; source?: string; medium?: string; content?: string };
-const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
+type Subscriber = { id: string; email: string; timestamp: string; source?: string };
+const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
 
 async function supabaseRequest<T = SupabaseRow>(tablePath: string, init: RequestInit = {}) {
   if (!supabaseEnabled) throw new Error("Supabase is not configured");
@@ -92,6 +93,15 @@ async function persistWhatsappClick(click: WhatsAppClick) {
   if (supabaseEnabled) { try { await supabaseRequest("agentplus_whatsapp_clicks", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: click.id, payload: click, created_at: click.timestamp }) }); } catch { console.warn("Supabase WhatsApp clicks table is not ready; using fallback storage."); } }
 }
 
+async function getSubscribers() {
+  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: Subscriber }>>("agentplus_subscribers?select=payload&order=created_at.desc&limit=1000"); return rows.map((row) => row.payload); } catch { /* schema may not be applied yet */ } }
+  return memory.subscribers;
+}
+async function persistSubscriber(subscriber: Subscriber) {
+  memory.subscribers = [subscriber, ...memory.subscribers.filter((row) => row.email !== subscriber.email)].slice(0, 1000);
+  if (supabaseEnabled) { try { await supabaseRequest("agentplus_subscribers", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: subscriber.id, payload: subscriber, created_at: subscriber.timestamp }) }); return; } catch { console.warn("Supabase subscribers table is not ready; using fallback storage."); } }
+}
+
 async function getAtlas() {
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ messages: ChatMessage[] }>>("agentplus_memory?id=eq.1&select=messages&limit=1"); return rows[0]?.messages || []; } catch { /* schema may not be applied yet */ } }
   if (redisEnabled) { try { const raw = await redis("GET", "ap:atlas:memory") as string | null; return raw ? JSON.parse(raw) as ChatMessage[] : []; } catch { /* fallback */ } }
@@ -137,6 +147,8 @@ app.post("/api/admin-auth", async (req, res) => { const password = typeof req.bo
 app.delete("/api/admin-auth", async (req, res) => { const token = typeof req.body?.token === "string" ? req.body.token : ""; if (token) await deleteSession(token); res.json({ ok: true }); });
 
 app.get("/api/orders", requireAuth, async (_req, res) => res.json({ orders: await getOrders() }));
+app.get("/api/subscribers", requireAuth, async (_req, res) => res.json({ subscribers: await getSubscribers() }));
+app.post("/api/subscribe", async (req, res) => { const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : ""; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Valid email required" }); const subscriber: Subscriber = { id: `sub_${Date.now()}_${randomBytes(3).toString("hex")}`, email, timestamp: new Date().toISOString(), source: typeof req.body?.source === "string" ? req.body.source.slice(0, 120) : "blog" }; try { await persistSubscriber(subscriber); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 app.post("/api/inquiries", async (req, res) => { const inquiry = req.body as Order; if (!inquiry?.requirements) return res.status(400).json({ error: "Missing requirements" }); const order = { ...inquiry, id: inquiry.id || `ord_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: inquiry.timestamp || new Date().toISOString(), status: inquiry.status || "new", source: inquiry.source || "chatbot" }; try { await persistOrder(order); res.json({ ok: true, id: order.id }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 app.post("/api/orders", requireAuth, async (req, res) => { const order = req.body as Order; if (!order?.id) return res.status(400).json({ error: "Missing id" }); await persistOrder(order); res.json({ ok: true }); });
 app.patch("/api/orders", requireAuth, async (req, res) => { const { id, ...fields } = req.body as { id?: string } & Record<string, unknown>; if (!id) return res.status(400).json({ error: "Missing id" }); const order = (await getOrders()).find((row) => row.id === id); if (order) await persistOrder({ ...order, ...fields }); res.json({ ok: true }); });
