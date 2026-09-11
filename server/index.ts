@@ -30,7 +30,8 @@ type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 type SupabaseRow = { id?: string | number; payload?: Order | Visitor | WhatsAppClick; messages?: ChatMessage[]; token?: string; expires_at?: string };
 type WhatsAppClick = { id: string; timestamp: string; service: string; visitorId?: string; page?: string; device?: string; referrer?: string; campaign?: string; source?: string; medium?: string; content?: string };
 type Subscriber = { id: string; email: string; timestamp: string; source?: string };
-const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
+type Article = { id: string; category: string; title: string; excerpt: string; body: string; date: string; readTime: string; createdAt: string; updatedAt?: string };
+const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], articles: [] as Article[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
 
 async function supabaseRequest<T = SupabaseRow>(tablePath: string, init: RequestInit = {}) {
   if (!supabaseEnabled) throw new Error("Supabase is not configured");
@@ -102,6 +103,19 @@ async function persistSubscriber(subscriber: Subscriber) {
   if (supabaseEnabled) { try { await supabaseRequest("agentplus_subscribers", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: subscriber.id, payload: subscriber, created_at: subscriber.timestamp }) }); return; } catch { console.warn("Supabase subscribers table is not ready; using fallback storage."); } }
 }
 
+async function getArticles() {
+  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: Article }>>("agentplus_articles?select=payload&order=created_at.desc&limit=500"); return rows.map((row) => row.payload); } catch { /* schema may not be applied yet */ } }
+  return memory.articles;
+}
+async function persistArticle(article: Article) {
+  memory.articles = [article, ...memory.articles.filter((row) => row.id !== article.id)];
+  if (supabaseEnabled) { try { await supabaseRequest("agentplus_articles", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: article.id, payload: article, created_at: article.createdAt }) }); return; } catch { console.warn("Supabase articles table is not ready; using fallback storage."); } }
+}
+async function deleteArticle(id: string) {
+  memory.articles = memory.articles.filter((row) => row.id !== id);
+  if (supabaseEnabled) { try { await supabaseRequest(`agentplus_articles?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }); } catch { /* fallback */ } }
+}
+
 async function getAtlas() {
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ messages: ChatMessage[] }>>("agentplus_memory?id=eq.1&select=messages&limit=1"); return rows[0]?.messages || []; } catch { /* schema may not be applied yet */ } }
   if (redisEnabled) { try { const raw = await redis("GET", "ap:atlas:memory") as string | null; return raw ? JSON.parse(raw) as ChatMessage[] : []; } catch { /* fallback */ } }
@@ -145,6 +159,12 @@ async function callGroq(messages: ChatMessage[], mode: "client" | "admin", dashb
 app.get("/api/status", (_req, res) => res.json({ ok: true, backend: backendMode, supabase: supabaseEnabled, redis: redisEnabled, groq: Boolean(GROQ_KEY), adminPassword: Boolean(ADMIN_PASSWORD) }));
 app.post("/api/admin-auth", async (req, res) => { const password = typeof req.body?.password === "string" ? req.body.password : ""; if (!ADMIN_PASSWORD) return res.status(503).json({ ok: false, error: "ADMIN_PASSWORD is not configured" }); if (password !== ADMIN_PASSWORD) return res.json({ ok: false }); const token = randomBytes(32).toString("hex"); await createSession(token); res.json({ ok: true, token }); });
 app.delete("/api/admin-auth", async (req, res) => { const token = typeof req.body?.token === "string" ? req.body.token : ""; if (token) await deleteSession(token); res.json({ ok: true }); });
+
+app.get("/api/articles", async (_req, res) => res.json({ articles: await getArticles() }));
+app.get("/api/articles/manage", requireAuth, async (_req, res) => res.json({ articles: await getArticles() }));
+app.post("/api/articles", requireAuth, async (req, res) => { const body = req.body || {}; if (!body.title || !body.category || !body.excerpt || !body.body) return res.status(400).json({ error: "Title, category, excerpt, and body are required" }); const now = new Date().toISOString(); const article: Article = { id: `art_${Date.now()}_${randomBytes(3).toString("hex")}`, category: String(body.category).slice(0, 80), title: String(body.title).slice(0, 180), excerpt: String(body.excerpt).slice(0, 500), body: String(body.body).slice(0, 10000), date: String(body.date || new Date().toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" })), readTime: String(body.readTime || "5 min read").slice(0, 40), createdAt: now }; await persistArticle(article); res.json({ ok: true, article }); });
+app.patch("/api/articles", requireAuth, async (req, res) => { const body = req.body || {}; if (!body.id) return res.status(400).json({ error: "Missing id" }); const existing = (await getArticles()).find((article) => article.id === body.id); if (!existing) return res.status(404).json({ error: "Article not found" }); const article = { ...existing, ...body, updatedAt: new Date().toISOString() } as Article; await persistArticle(article); res.json({ ok: true, article }); });
+app.delete("/api/articles", requireAuth, async (req, res) => { if (!req.body?.id) return res.status(400).json({ error: "Missing id" }); await deleteArticle(String(req.body.id)); res.json({ ok: true }); });
 
 app.get("/api/orders", requireAuth, async (_req, res) => res.json({ orders: await getOrders() }));
 app.get("/api/subscribers", requireAuth, async (_req, res) => res.json({ subscribers: await getSubscribers() }));
