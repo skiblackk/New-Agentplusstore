@@ -154,16 +154,6 @@ export default function Home() {
 
   return (
     <main className="site-shell">
-      <div className="announcement-bar">
-        <div className="container announcement-inner">
-          <span className="announcement-pulse" />
-          <span>New: AgentPlus Workflows are here</span>
-          <button onClick={() => goTo("agents")} className="announcement-link">
-            See what’s new <ArrowUpRight size={14} />
-          </button>
-        </div>
-      </div>
-
       <header className="site-header">
         <div className="container nav-inner">
           <button className="brand" onClick={() => goTo("top")} aria-label="AgentPlus home">

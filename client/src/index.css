@@ -205,7 +205,6 @@ button { font: inherit; }
 .label-top { animation: labelBlink 2.8s ease-in-out 1.4s infinite; }
 .floating-card-top { animation: heroRise .7s var(--ease-out) .7s both, orbitFloat 5s ease-in-out 1.5s infinite; }
 .floating-card-bottom { animation: heroRise .7s var(--ease-out) .9s both, orbitFloatAlt 5.5s ease-in-out 1.7s infinite; }
-.announcement-pulse { animation: pulseGlow 2.5s ease-in-out infinite; }
 
 [data-reveal] { opacity: 0; transform: translateY(24px); transition: opacity .7s var(--ease-out), transform .7s var(--ease-out); }
 [data-reveal].is-visible { opacity: 1; transform: translateY(0); }
@@ -223,7 +222,7 @@ button { font: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-copy > *, .hero-visual, .floating-card-top, .floating-card-bottom { animation: none; opacity: 1; }
-  .hero-image-wrap, .orbit-one, .orbit-two, .label-top, .announcement-pulse, .agent-card:hover .illustration-orbit, .agent-card:hover .orbit-b { animation: none; }
+  .hero-image-wrap, .orbit-one, .orbit-two, .label-top, .agent-card:hover .illustration-orbit, .agent-card:hover .orbit-b { animation: none; }
   [data-reveal], [data-reveal="stagger"] > * { opacity: 1; transform: none; transition: none; }
   .cta-scribble path { stroke-dashoffset: 0; }
 }
@@ -287,7 +286,12 @@ button { font: inherit; }
 @media (max-width: 760px) { .blog-toolbar { align-items: stretch; flex-direction: column; }.blog-tags { justify-content: flex-start; }.editor-grid { grid-template-columns: 1fr; }.managed-article { align-items: flex-start; flex-direction: column; }.managed-article > div:last-child { width: 100%; }.managed-article button { flex: 1; justify-content: center; } }
 
 /* Functional handoff actions. */
-.agent-action, .service-action { display: inline-flex; align-items: center; gap: 6px; border: 1px solid currentColor; border-radius: 999px; padding: 8px 11px; background: transparent; color: inherit; font-size: 10px; font-weight: 700; transition: background .18s ease, color .18s ease, transform .18s ease; }
-.agent-action:hover, .service-action:hover { transform: translateY(-1px); background: #ff7800; color: #171715; }
+.agent-action, .service-action { position: relative; display: inline-flex; align-items: center; gap: 6px; overflow: hidden; border: 1px solid currentColor; border-radius: 999px; padding: 8px 11px; background: transparent; color: inherit; font-size: 10px; font-weight: 700; transition: background .2s var(--ease-out), color .2s var(--ease-out), border-color .2s ease, transform .16s var(--ease-out), box-shadow .2s ease; }
+.agent-action::after, .service-action::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.32) 48%, transparent 70%); transform: translateX(-130%); transition: transform .45s var(--ease-out); pointer-events: none; }
+.agent-action:hover, .agent-action:focus-visible, .service-action:hover, .service-action:focus-visible { transform: translateY(-2px); background: #ff7800; border-color: #ff7800; color: #171715; box-shadow: 0 8px 20px rgba(255,120,0,.22); outline: none; }
+.agent-action:hover::after, .agent-action:focus-visible::after, .service-action:hover::after, .service-action:focus-visible::after { transform: translateX(130%); }
+.agent-action:active, .service-action:active { transform: translateY(0) scale(.96); box-shadow: 0 3px 9px rgba(255,120,0,.16); }
 .agent-card .agent-action { margin-top: 14px; color: #b8b5ad; }
 .service-action { margin-top: 14px; color: #8b4e0b; }
+.agent-card:has(.agent-action:hover), .agent-card:has(.agent-action:focus-visible) { border-color: #ff7800; box-shadow: 0 18px 36px rgba(0,0,0,.18); }
+.service-card:has(.service-action:hover), .service-card:has(.service-action:focus-visible) { border-color: #ff7800; box-shadow: 0 18px 36px rgba(0,0,0,.22); }
