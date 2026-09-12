@@ -130,8 +130,17 @@ async function clearAtlas() { memory.atlas = []; if (supabaseEnabled) await supa
 
 async function createSession(token: string) {
   memory.sessions.add(token);
-  if (supabaseEnabled) { await supabaseRequest("agentplus_sessions", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ token, expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() }) }); return; }
-  if (redisEnabled) await redis("SET", `ap:session:${token}`, "1", "EX", 60 * 60 * 24 * 30);
+  if (supabaseEnabled) {
+    try {
+      await supabaseRequest("agentplus_sessions", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ token, expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() }) });
+      return;
+    } catch (error) {
+      console.warn("Supabase session storage unavailable; using in-memory session fallback.", String(error));
+    }
+  }
+  if (redisEnabled) {
+    try { await redis("SET", `ap:session:${token}`, "1", "EX", 60 * 60 * 24 * 30); } catch (error) { console.warn("Redis session storage unavailable; using in-memory session fallback.", String(error)); }
+  }
 }
 async function validSession(token: string) {
   if (!token) return false;
