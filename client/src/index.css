@@ -311,3 +311,10 @@ button { font: inherit; }
 .admin-lead-notice button.dismiss { padding: 7px; background: transparent; color: #826b58; }
 @keyframes admin-notice-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .admin-lead-notice { animation: none; } }
+
+.admin-push-button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid rgba(26,26,26,.12); border-radius: 999px; padding: 7px 10px; background: #fff; color: #2c2118; font-size: 11px; font-weight: 700; transition: background 160ms ease-out, color 160ms ease-out, transform 160ms ease-out; }
+.admin-push-button:hover { background: #f47f14; color: #fff; }
+.admin-push-button.enabled { border-color: rgba(63,155,95,.25); color: #3f7d4e; }
+.admin-push-button.blocked, .admin-push-button.error { color: #9b4f38; }
+.admin-push-button:active { transform: scale(.97); }
+@media (max-width: 900px) { .admin-push-button { padding: 7px; } .admin-push-button:not(.enabled) { font-size: 0; } .admin-push-button svg { flex: 0 0 auto; } }

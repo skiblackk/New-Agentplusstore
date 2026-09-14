@@ -2,8 +2,9 @@ import express from "express";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import type { Response } from "express";
+import webpush from "web-push";
 import { createServer as createViteServer } from "vite";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,6 +21,10 @@ const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || "";
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const GROQ_KEY = process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY || "";
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const pushEnabled = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (pushEnabled) webpush.setVapidDetails("mailto:hello@agentplus.store", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 const supabaseEnabled = Boolean(SUPABASE_URL && SUPABASE_KEY);
 const redisEnabled = Boolean(REDIS_URL && REDIS_TOKEN);
 const backendMode = supabaseEnabled ? "supabase" : redisEnabled ? "redis" : "memory-fallback";
@@ -32,7 +37,8 @@ type SupabaseRow = { id?: string | number; payload?: Order | Visitor | WhatsAppC
 type WhatsAppClick = { id: string; timestamp: string; service: string; visitorId?: string; page?: string; device?: string; referrer?: string; campaign?: string; source?: string; medium?: string; content?: string };
 type Subscriber = { id: string; email: string; timestamp: string; source?: string };
 type Article = { id: string; category: string; title: string; excerpt: string; body: string; date: string; readTime: string; createdAt: string; updatedAt?: string };
-const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], articles: [] as Article[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
+type PushSubscription = { endpoint: string; expirationTime?: number | null; keys: { p256dh: string; auth: string } };
+const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], articles: [] as Article[], pushSubscriptions: [] as Array<{ id: string; payload: PushSubscription; createdAt: string }>, atlas: [] as ChatMessage[], sessions: new Set<string>() };
 const leadEventClients = new Set<Response>();
 
 function broadcastLead(order: Order) {
@@ -103,6 +109,30 @@ async function persistWhatsappClick(click: WhatsAppClick) {
   if (supabaseEnabled) { try { await supabaseRequest("agentplus_whatsapp_clicks", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: click.id, payload: click, created_at: click.timestamp }) }); } catch { console.warn("Supabase WhatsApp clicks table is not ready; using fallback storage."); } }
 }
 
+async function getPushSubscriptions() {
+  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ id: string; payload: PushSubscription }>>("agentplus_push_subscriptions?select=id,payload&limit=500"); return rows.map((row) => ({ id: row.id, payload: row.payload })); } catch { /* schema may not be applied yet */ } }
+  return memory.pushSubscriptions;
+}
+async function persistPushSubscription(subscription: PushSubscription) {
+  const id = createHash("sha256").update(subscription.endpoint).digest("hex").slice(0, 32);
+  const row = { id, payload: subscription, createdAt: new Date().toISOString() };
+  memory.pushSubscriptions = [row, ...memory.pushSubscriptions.filter((value) => value.id !== id)].slice(0, 500);
+  if (supabaseEnabled) { try { await supabaseRequest("agentplus_push_subscriptions", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id, payload: subscription, created_at: row.createdAt }) }); return id; } catch { console.warn("Supabase push subscriptions table is not ready; using fallback storage."); } }
+  return id;
+}
+async function deletePushSubscription(id: string) {
+  memory.pushSubscriptions = memory.pushSubscriptions.filter((value) => value.id !== id);
+  if (supabaseEnabled) { try { await supabaseRequest(`agentplus_push_subscriptions?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }); } catch { /* fallback */ } }
+}
+async function sendLeadPush(order: Order) {
+  if (!pushEnabled) return;
+  const subscriptions = await getPushSubscriptions();
+  const body = JSON.stringify({ title: "New AgentPlus lead", body: `${order.customerName || order.customerEmail || "A new inquiry"} is ready for follow-up.`, url: "/agentplus.admin", tag: `lead-${order.id}` });
+  await Promise.all(subscriptions.map(async ({ id, payload }) => {
+    try { await webpush.sendNotification(payload, body, { TTL: 300 }); }
+    catch (error) { const statusCode = (error as { statusCode?: number }).statusCode; if (statusCode === 404 || statusCode === 410) await deletePushSubscription(id); else console.warn("Browser push delivery failed.", String(error)); }
+  }));
+}
 async function getSubscribers() {
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: Subscriber }>>("agentplus_subscribers?select=payload&order=created_at.desc&limit=1000"); return rows.map((row) => row.payload); } catch { /* schema may not be applied yet */ } }
   return memory.subscribers;
@@ -174,7 +204,7 @@ async function callGroq(messages: ChatMessage[], mode: "client" | "admin", dashb
   return payload.choices?.[0]?.message?.content || "I’m having a moment—please try WhatsApp for the fastest response.";
 }
 
-app.get("/api/status", (_req, res) => res.json({ ok: true, backend: backendMode, supabase: supabaseEnabled, redis: redisEnabled, groq: Boolean(GROQ_KEY), adminPassword: Boolean(ADMIN_PASSWORD) }));
+app.get("/api/status", (_req, res) => res.json({ ok: true, backend: backendMode, supabase: supabaseEnabled, redis: redisEnabled, groq: Boolean(GROQ_KEY), adminPassword: Boolean(ADMIN_PASSWORD), browserPush: pushEnabled }));
 app.post("/api/admin-auth", async (req, res) => { const password = typeof req.body?.password === "string" ? req.body.password : ""; if (!ADMIN_PASSWORD) return res.status(503).json({ ok: false, error: "ADMIN_PASSWORD is not configured" }); if (password !== ADMIN_PASSWORD) return res.json({ ok: false }); const token = randomBytes(32).toString("hex"); await createSession(token); res.json({ ok: true, token }); });
 app.delete("/api/admin-auth", async (req, res) => { const token = typeof req.body?.token === "string" ? req.body.token : ""; if (token) await deleteSession(token); res.json({ ok: true }); });
 
@@ -185,6 +215,18 @@ app.patch("/api/articles", requireAuth, async (req, res) => { const body = req.b
 app.delete("/api/articles", requireAuth, async (req, res) => { if (!req.body?.id) return res.status(400).json({ error: "Missing id" }); await deleteArticle(String(req.body.id)); res.json({ ok: true }); });
 
 app.get("/api/orders", requireAuth, async (_req, res) => res.json({ orders: await getOrders() }));
+app.get("/api/push/public-key", (_req, res) => pushEnabled ? res.json({ publicKey: VAPID_PUBLIC_KEY }) : res.status(503).json({ error: "Browser push is not configured" }));
+app.post("/api/push/subscribe", requireAuth, async (req, res) => {
+  const subscription = req.body?.subscription as PushSubscription;
+  if (!pushEnabled) return res.status(503).json({ error: "Browser push is not configured" });
+  if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) return res.status(400).json({ error: "Invalid push subscription" });
+  const id = await persistPushSubscription(subscription);
+  res.json({ ok: true, id });
+});
+app.delete("/api/push/subscribe", requireAuth, async (req, res) => {
+  if (req.body?.id) await deletePushSubscription(String(req.body.id));
+  res.json({ ok: true });
+});
 app.get("/api/admin/lead-events", async (req, res) => {
   const token = typeof req.query.token === "string" ? req.query.token : "";
   if (!(await validSession(token))) return res.status(401).end();
@@ -196,7 +238,7 @@ app.get("/api/admin/lead-events", async (req, res) => {
 });
 app.get("/api/subscribers", requireAuth, async (_req, res) => res.json({ subscribers: await getSubscribers() }));
 app.post("/api/subscribe", async (req, res) => { const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : ""; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Valid email required" }); const subscriber: Subscriber = { id: `sub_${Date.now()}_${randomBytes(3).toString("hex")}`, email, timestamp: new Date().toISOString(), source: typeof req.body?.source === "string" ? req.body.source.slice(0, 120) : "blog" }; try { await persistSubscriber(subscriber); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
-app.post("/api/inquiries", async (req, res) => { const inquiry = req.body as Order; if (!inquiry?.requirements) return res.status(400).json({ error: "Missing requirements" }); const order = { ...inquiry, id: inquiry.id || `ord_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: inquiry.timestamp || new Date().toISOString(), status: inquiry.status || "new", source: inquiry.source || "chatbot" }; try { await persistOrder(order); broadcastLead(order); res.json({ ok: true, id: order.id }); } catch (error) { res.status(500).json({ error: String(error) }); } });
+app.post("/api/inquiries", async (req, res) => { const inquiry = req.body as Order; if (!inquiry?.requirements) return res.status(400).json({ error: "Missing requirements" }); const order = { ...inquiry, id: inquiry.id || `ord_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: inquiry.timestamp || new Date().toISOString(), status: inquiry.status || "new", source: inquiry.source || "chatbot" }; try { await persistOrder(order); broadcastLead(order); void sendLeadPush(order); res.json({ ok: true, id: order.id }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 app.post("/api/orders", requireAuth, async (req, res) => { const order = req.body as Order; if (!order?.id) return res.status(400).json({ error: "Missing id" }); await persistOrder(order); res.json({ ok: true }); });
 app.patch("/api/orders", requireAuth, async (req, res) => { const { id, ...fields } = req.body as { id?: string } & Record<string, unknown>; if (!id) return res.status(400).json({ error: "Missing id" }); const order = (await getOrders()).find((row) => row.id === id); if (order) await persistOrder({ ...order, ...fields }); res.json({ ok: true }); });
 app.delete("/api/orders", requireAuth, async (req, res) => { const id = req.body?.id as string; if (!id) return res.status(400).json({ error: "Missing id" }); await deleteOrder(id); res.json({ ok: true }); });
