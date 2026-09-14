@@ -318,3 +318,36 @@ button { font: inherit; }
 .admin-push-button.blocked, .admin-push-button.error { color: #9b4f38; }
 .admin-push-button:active { transform: scale(.97); }
 @media (max-width: 900px) { .admin-push-button { padding: 7px; } .admin-push-button:not(.enabled) { font-size: 0; } .admin-push-button svg { flex: 0 0 auto; } }
+
+.notification-panel { margin-top: 18px; }
+.notification-controls, .notification-sources { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 14px 0; color: #716d65; font-size: 11px; }
+.notification-controls input:not([type="checkbox"]), .payment-settings input, .payment-settings textarea { min-height: 32px; border: 1px solid #dedbd2; border-radius: 5px; padding: 8px 10px; color: #38352f; background: #fff; font: inherit; font-size: 11px; }
+.notification-controls button, .notification-sources button { border: 1px solid #dedbd2; border-radius: 999px; padding: 7px 10px; color: #6d675d; background: #fff; font-size: 10px; }
+.notification-controls button { margin-left: auto; color: #8b4e0b; background: #fff1df; }
+.notification-sources button.active { border-color: #f47f14; color: #9a5000; background: #fff1df; }
+.notification-history { display: grid; gap: 4px; margin-top: 12px; }
+.notification-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid #eceae4; padding: 10px 0; }
+.notification-row strong, .notification-row small { display: block; }
+.notification-row strong { color: #36322c; font-size: 12px; }
+.notification-row small, .notification-row time { color: #8b8980; font-size: 10px; }
+.settings-panel { display: grid; gap: 18px; }
+.payment-settings { display: grid; gap: 10px; max-width: 680px; padding: 18px; border-radius: 8px; background: #faf9f6; }
+.payment-settings h3 { margin: 0; color: #34312b; font: 600 18px "Space Grotesk", sans-serif; }
+.payment-settings .button { justify-self: start; }
+.payment-settings small { color: #8b8980; font-size: 10px; line-height: 1.5; }
+.settings-check { display: flex; align-items: center; gap: 8px; color: #625e56; font-size: 11px; }
+.payment-link { display: block; margin-top: 9px; border: 1px solid #e5d1bb; border-radius: 999px; padding: 8px 12px; color: #8b4e0b; background: #fff7ed; font-size: 10px; font-weight: 700; }
+.payment-link:hover { border-color: #f47f14; background: #fff1df; }
+.payment-backdrop { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 20px; background: rgba(17, 16, 14, .68); backdrop-filter: blur(8px); }
+.payment-dialog { position: relative; width: min(100%, 530px); max-height: min(720px, 92vh); overflow: auto; padding: 30px; border-radius: 16px; color: #34312b; background: #faf9f6; box-shadow: 0 24px 70px rgba(0,0,0,.28); }
+.payment-dialog h2 { margin: 12px 0 8px; font: 600 clamp(28px, 5vw, 42px)/1.02 "Space Grotesk", sans-serif; letter-spacing: -.05em; }
+.payment-dialog p { color: #757168; font-size: 13px; line-height: 1.6; }
+.payment-close { position: absolute; top: 18px; right: 18px; display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid #dedbd2; border-radius: 50%; color: #625e56; background: #fff; }
+.payment-details { display: grid; gap: 5px; margin: 18px 0 12px; padding: 14px; border-radius: 8px; color: #78736a; background: #efeee9; font-size: 10px; }
+.payment-details strong { color: #34312b; font-size: 13px; overflow-wrap: anywhere; }
+.payment-instructions { padding: 10px 12px; border-left: 2px solid #f47f14; background: #fff1df; }
+.payment-form { display: grid; gap: 9px; margin-top: 15px; }
+.payment-form input { border: 1px solid #dedbd2; border-radius: 6px; padding: 12px; outline: none; color: #34312b; background: #fff; font: inherit; }
+.payment-form input:focus { border-color: #f47f14; box-shadow: 0 0 0 3px rgba(244,127,20,.12); }
+.payment-success { margin-top: 18px; padding: 14px; border-radius: 8px; color: #356b45; background: #eaf5ed; font-size: 12px; line-height: 1.5; }
+@media (max-width: 640px) { .payment-dialog { padding: 24px 18px; } .notification-controls button { margin-left: 0; } .notification-row { align-items: flex-start; flex-direction: column; gap: 4px; } }

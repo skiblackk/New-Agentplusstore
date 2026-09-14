@@ -38,7 +38,12 @@ type WhatsAppClick = { id: string; timestamp: string; service: string; visitorId
 type Subscriber = { id: string; email: string; timestamp: string; source?: string };
 type Article = { id: string; category: string; title: string; excerpt: string; body: string; date: string; readTime: string; createdAt: string; updatedAt?: string };
 type PushSubscription = { endpoint: string; expirationTime?: number | null; keys: { p256dh: string; auth: string } };
-const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], articles: [] as Article[], pushSubscriptions: [] as Array<{ id: string; payload: PushSubscription; createdAt: string }>, atlas: [] as ChatMessage[], sessions: new Set<string>() };
+type NotificationPreferences = { leadSources: string[]; quietHoursEnabled: boolean; quietStart: string; quietEnd: string; timezone: string };
+type NotificationRecord = { id: string; leadId: string; title: string; body: string; source?: string; channel: "browser"; status: "sent" | "skipped" | "failed"; timestamp: string };
+type PaymentConfig = { enabled: boolean; binanceId: string; walletAddress: string; network: string; instructions: string };
+const defaultNotificationPreferences: NotificationPreferences = { leadSources: ["all"], quietHoursEnabled: false, quietStart: "22:00", quietEnd: "07:00", timezone: "Africa/Nairobi" };
+const defaultPaymentConfig: PaymentConfig = { enabled: false, binanceId: "", walletAddress: "", network: "TRC20", instructions: "Send the exact USDT amount to the configured wallet, then submit your transaction hash for verification." };
+const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], articles: [] as Article[], pushSubscriptions: [] as Array<{ id: string; payload: PushSubscription; createdAt: string }>, notifications: [] as NotificationRecord[], notificationPreferences: defaultNotificationPreferences, paymentConfig: defaultPaymentConfig, atlas: [] as ChatMessage[], sessions: new Set<string>() };
 const leadEventClients = new Set<Response>();
 
 function broadcastLead(order: Order) {
@@ -109,6 +114,28 @@ async function persistWhatsappClick(click: WhatsAppClick) {
   if (supabaseEnabled) { try { await supabaseRequest("agentplus_whatsapp_clicks", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: click.id, payload: click, created_at: click.timestamp }) }); } catch { console.warn("Supabase WhatsApp clicks table is not ready; using fallback storage."); } }
 }
 
+async function getSettings<T>(key: string, fallback: T): Promise<T> {
+  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: T }>>(`agentplus_settings?id=eq.${encodeURIComponent(key)}&select=payload&limit=1`); return rows[0]?.payload || fallback; } catch { /* schema may not be applied yet */ } }
+  return key === "notification_preferences" ? memory.notificationPreferences as T : memory.paymentConfig as T;
+}
+async function saveSettings<T>(key: string, payload: T) {
+  if (key === "notification_preferences") memory.notificationPreferences = payload as NotificationPreferences; else memory.paymentConfig = payload as PaymentConfig;
+  if (supabaseEnabled) { try { await supabaseRequest("agentplus_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: key, payload, updated_at: new Date().toISOString() }) }); } catch { console.warn("Supabase settings table is not ready; using fallback storage."); } }
+}
+async function getNotificationHistory() {
+  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: NotificationRecord }>>("agentplus_notification_history?select=payload&order=created_at.desc&limit=100"); return rows.map((row) => row.payload); } catch { /* schema may not be applied yet */ } }
+  return memory.notifications;
+}
+async function saveNotificationRecord(record: NotificationRecord) {
+  memory.notifications = [record, ...memory.notifications].slice(0, 100);
+  if (supabaseEnabled) { try { await supabaseRequest("agentplus_notification_history", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: record.id, payload: record, created_at: record.timestamp }) }); } catch { /* fallback */ } }
+}
+function isQuietHours(preferences: NotificationPreferences) {
+  if (!preferences.quietHoursEnabled) return false;
+  const now = new Intl.DateTimeFormat("en-GB", { timeZone: preferences.timezone || "Africa/Nairobi", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+  const current = Number(now.replace(":", "")); const start = Number(preferences.quietStart.replace(":", "")); const end = Number(preferences.quietEnd.replace(":", ""));
+  return start <= end ? current >= start && current < end : current >= start || current < end;
+}
 async function getPushSubscriptions() {
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ id: string; payload: PushSubscription }>>("agentplus_push_subscriptions?select=id,payload&limit=500"); return rows.map((row) => ({ id: row.id, payload: row.payload })); } catch { /* schema may not be applied yet */ } }
   return memory.pushSubscriptions;
@@ -125,13 +152,14 @@ async function deletePushSubscription(id: string) {
   if (supabaseEnabled) { try { await supabaseRequest(`agentplus_push_subscriptions?id=eq.${encodeURIComponent(id)}`, { method: "DELETE" }); } catch { /* fallback */ } }
 }
 async function sendLeadPush(order: Order) {
-  if (!pushEnabled) return;
-  const subscriptions = await getPushSubscriptions();
-  const body = JSON.stringify({ title: "New AgentPlus lead", body: `${order.customerName || order.customerEmail || "A new inquiry"} is ready for follow-up.`, url: "/agentplus.admin", tag: `lead-${order.id}` });
-  await Promise.all(subscriptions.map(async ({ id, payload }) => {
-    try { await webpush.sendNotification(payload, body, { TTL: 300 }); }
-    catch (error) { const statusCode = (error as { statusCode?: number }).statusCode; if (statusCode === 404 || statusCode === 410) await deletePushSubscription(id); else console.warn("Browser push delivery failed.", String(error)); }
-  }));
+  const preferences = await getSettings("notification_preferences", defaultNotificationPreferences);
+  const sourceAllowed = preferences.leadSources.includes("all") || preferences.leadSources.includes(String(order.source || "chatbot"));
+  const title = "New AgentPlus lead"; const body = `${order.customerName || order.customerEmail || "A new inquiry"} is ready for follow-up.`;
+  const base = { leadId: order.id, title, body, source: String(order.source || "chatbot"), channel: "browser" as const, timestamp: new Date().toISOString() };
+  if (!pushEnabled || !sourceAllowed || isQuietHours(preferences)) { await saveNotificationRecord({ id: `notif_${Date.now()}_${randomBytes(3).toString("hex")}`, ...base, status: "skipped" }); return; }
+  const subscriptions = await getPushSubscriptions(); const payload = JSON.stringify({ title, body, url: "/agentplus.admin", tag: `lead-${order.id}` }); let delivered = 0;
+  await Promise.all(subscriptions.map(async ({ id, payload: subscription }) => { try { await webpush.sendNotification(subscription, payload, { TTL: 300 }); delivered += 1; } catch (error) { const statusCode = (error as { statusCode?: number }).statusCode; if (statusCode === 404 || statusCode === 410) await deletePushSubscription(id); } }));
+  await saveNotificationRecord({ id: `notif_${Date.now()}_${randomBytes(3).toString("hex")}`, ...base, status: delivered ? "sent" : "failed" });
 }
 async function getSubscribers() {
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: Subscriber }>>("agentplus_subscribers?select=payload&order=created_at.desc&limit=1000"); return rows.map((row) => row.payload); } catch { /* schema may not be applied yet */ } }
@@ -216,6 +244,12 @@ app.delete("/api/articles", requireAuth, async (req, res) => { if (!req.body?.id
 
 app.get("/api/orders", requireAuth, async (_req, res) => res.json({ orders: await getOrders() }));
 app.get("/api/push/public-key", (_req, res) => pushEnabled ? res.json({ publicKey: VAPID_PUBLIC_KEY }) : res.status(503).json({ error: "Browser push is not configured" }));
+app.get("/api/notification-preferences", requireAuth, async (_req, res) => res.json({ preferences: await getSettings("notification_preferences", defaultNotificationPreferences) }));
+app.patch("/api/notification-preferences", requireAuth, async (req, res) => { const body = req.body || {}; const preferences: NotificationPreferences = { leadSources: Array.isArray(body.leadSources) && body.leadSources.length ? body.leadSources.map(String).slice(0, 20) : ["all"], quietHoursEnabled: Boolean(body.quietHoursEnabled), quietStart: String(body.quietStart || "22:00"), quietEnd: String(body.quietEnd || "07:00"), timezone: String(body.timezone || "Africa/Nairobi") }; await saveSettings("notification_preferences", preferences); res.json({ ok: true, preferences }); });
+app.get("/api/notification-history", requireAuth, async (_req, res) => res.json({ notifications: await getNotificationHistory() }));
+app.get("/api/payment-config", async (_req, res) => { const config = await getSettings("payment_config", defaultPaymentConfig); res.json({ config: { enabled: config.enabled, binanceId: config.binanceId, walletAddress: config.walletAddress, network: config.network, instructions: config.instructions } }); });
+app.get("/api/payment-config/manage", requireAuth, async (_req, res) => res.json({ config: await getSettings("payment_config", defaultPaymentConfig) }));
+app.patch("/api/payment-config", requireAuth, async (req, res) => { const body = req.body || {}; const config: PaymentConfig = { enabled: Boolean(body.enabled), binanceId: String(body.binanceId || "").slice(0, 120), walletAddress: String(body.walletAddress || "").slice(0, 180), network: String(body.network || "TRC20").slice(0, 30), instructions: String(body.instructions || defaultPaymentConfig.instructions).slice(0, 1000) }; await saveSettings("payment_config", config); res.json({ ok: true, config }); });
 app.post("/api/push/subscribe", requireAuth, async (req, res) => {
   const subscription = req.body?.subscription as PushSubscription;
   if (!pushEnabled) return res.status(503).json({ error: "Browser push is not configured" });

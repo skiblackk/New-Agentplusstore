@@ -48,6 +48,18 @@ create table if not exists public.agentplus_push_subscriptions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.agentplus_settings (
+  id text primary key,
+  payload jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.agentplus_notification_history (
+  id text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists agentplus_orders_created_at_idx on public.agentplus_orders (created_at desc);
 create index if not exists agentplus_visitors_created_at_idx on public.agentplus_visitors (created_at desc);
 create index if not exists agentplus_sessions_expires_at_idx on public.agentplus_sessions (expires_at);
@@ -55,6 +67,7 @@ create index if not exists agentplus_whatsapp_clicks_created_at_idx on public.ag
 create unique index if not exists agentplus_subscribers_email_idx on public.agentplus_subscribers ((payload->>'email'));
 create index if not exists agentplus_articles_created_at_idx on public.agentplus_articles (created_at desc);
 create index if not exists agentplus_push_subscriptions_created_at_idx on public.agentplus_push_subscriptions (created_at desc);
+create index if not exists agentplus_notification_history_created_at_idx on public.agentplus_notification_history (created_at desc);
 
 -- The server uses the service-role key, so public browser access stays disabled.
 alter table public.agentplus_orders enable row level security;
@@ -65,3 +78,5 @@ alter table public.agentplus_whatsapp_clicks enable row level security;
 alter table public.agentplus_subscribers enable row level security;
 alter table public.agentplus_articles enable row level security;
 alter table public.agentplus_push_subscriptions enable row level security;
+alter table public.agentplus_settings enable row level security;
+alter table public.agentplus_notification_history enable row level security;
