@@ -299,3 +299,15 @@ button { font: inherit; }
 .admin-data-error { margin: 18px 30px 0; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid rgba(210,75,50,.32); border-radius: 10px; background: #fff0eb; color: #8c3525; font-size: 12px; line-height: 1.4; }
 .admin-data-error button { border: 1px solid currentColor; border-radius: 999px; padding: 6px 10px; background: transparent; color: inherit; font-size: 11px; font-weight: 700; }
 .admin-data-error button:hover { background: #8c3525; color: #fff; }
+
+.admin-live-status { display: inline-flex; align-items: center; gap: 6px; color: #58705e; font-size: 11px; font-weight: 700; }
+.admin-live-status > span { width: 7px; height: 7px; border-radius: 999px; background: #3f9b5f; box-shadow: 0 0 0 3px rgba(63,155,95,.12); }
+.admin-live-status.connecting > span, .admin-live-status.fallback > span { background: #d98a32; box-shadow: 0 0 0 3px rgba(217,138,50,.12); }
+.admin-lead-notice { position: sticky; top: 14px; z-index: 10; margin: 14px 30px -2px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; border: 1px solid rgba(244,127,20,.34); border-radius: 12px; background: #fff8ed; color: #2c2118; box-shadow: 0 10px 30px rgba(49,28,10,.1); animation: admin-notice-in 220ms cubic-bezier(.23,1,.32,1); }
+.admin-lead-notice > div { display: grid; gap: 2px; flex: 1; }
+.admin-lead-notice strong { font-size: 12px; }
+.admin-lead-notice span { color: #826b58; font-size: 11px; }
+.admin-lead-notice button { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 999px; padding: 7px 10px; background: #f47f14; color: #fff; font-size: 11px; font-weight: 700; }
+.admin-lead-notice button.dismiss { padding: 7px; background: transparent; color: #826b58; }
+@keyframes admin-notice-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .admin-lead-notice { animation: none; } }

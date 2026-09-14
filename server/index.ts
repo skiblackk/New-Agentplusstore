@@ -3,6 +3,7 @@ import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import { randomBytes } from "crypto";
+import type { Response } from "express";
 import { createServer as createViteServer } from "vite";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,6 +33,14 @@ type WhatsAppClick = { id: string; timestamp: string; service: string; visitorId
 type Subscriber = { id: string; email: string; timestamp: string; source?: string };
 type Article = { id: string; category: string; title: string; excerpt: string; body: string; date: string; readTime: string; createdAt: string; updatedAt?: string };
 const memory = { orders: [] as Order[], visitors: [] as Visitor[], whatsappClicks: [] as WhatsAppClick[], subscribers: [] as Subscriber[], articles: [] as Article[], atlas: [] as ChatMessage[], sessions: new Set<string>() };
+const leadEventClients = new Set<Response>();
+
+function broadcastLead(order: Order) {
+  const payload = `event: lead\ndata: ${JSON.stringify(order)}\n\n`;
+  leadEventClients.forEach((client) => {
+    try { client.write(payload); } catch { leadEventClients.delete(client); }
+  });
+}
 
 async function supabaseRequest<T = SupabaseRow>(tablePath: string, init: RequestInit = {}) {
   if (!supabaseEnabled) throw new Error("Supabase is not configured");
@@ -176,9 +185,18 @@ app.patch("/api/articles", requireAuth, async (req, res) => { const body = req.b
 app.delete("/api/articles", requireAuth, async (req, res) => { if (!req.body?.id) return res.status(400).json({ error: "Missing id" }); await deleteArticle(String(req.body.id)); res.json({ ok: true }); });
 
 app.get("/api/orders", requireAuth, async (_req, res) => res.json({ orders: await getOrders() }));
+app.get("/api/admin/lead-events", async (req, res) => {
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+  if (!(await validSession(token))) return res.status(401).end();
+  res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive", "X-Accel-Buffering": "no" });
+  res.write(`event: ready\ndata: ${JSON.stringify({ connectedAt: new Date().toISOString() })}\n\n`);
+  leadEventClients.add(res);
+  const heartbeat = setInterval(() => { try { res.write(`event: heartbeat\ndata: ${Date.now()}\n\n`); } catch { clearInterval(heartbeat); leadEventClients.delete(res); } }, 25_000);
+  req.on("close", () => { clearInterval(heartbeat); leadEventClients.delete(res); });
+});
 app.get("/api/subscribers", requireAuth, async (_req, res) => res.json({ subscribers: await getSubscribers() }));
 app.post("/api/subscribe", async (req, res) => { const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : ""; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Valid email required" }); const subscriber: Subscriber = { id: `sub_${Date.now()}_${randomBytes(3).toString("hex")}`, email, timestamp: new Date().toISOString(), source: typeof req.body?.source === "string" ? req.body.source.slice(0, 120) : "blog" }; try { await persistSubscriber(subscriber); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
-app.post("/api/inquiries", async (req, res) => { const inquiry = req.body as Order; if (!inquiry?.requirements) return res.status(400).json({ error: "Missing requirements" }); const order = { ...inquiry, id: inquiry.id || `ord_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: inquiry.timestamp || new Date().toISOString(), status: inquiry.status || "new", source: inquiry.source || "chatbot" }; try { await persistOrder(order); res.json({ ok: true, id: order.id }); } catch (error) { res.status(500).json({ error: String(error) }); } });
+app.post("/api/inquiries", async (req, res) => { const inquiry = req.body as Order; if (!inquiry?.requirements) return res.status(400).json({ error: "Missing requirements" }); const order = { ...inquiry, id: inquiry.id || `ord_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: inquiry.timestamp || new Date().toISOString(), status: inquiry.status || "new", source: inquiry.source || "chatbot" }; try { await persistOrder(order); broadcastLead(order); res.json({ ok: true, id: order.id }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 app.post("/api/orders", requireAuth, async (req, res) => { const order = req.body as Order; if (!order?.id) return res.status(400).json({ error: "Missing id" }); await persistOrder(order); res.json({ ok: true }); });
 app.patch("/api/orders", requireAuth, async (req, res) => { const { id, ...fields } = req.body as { id?: string } & Record<string, unknown>; if (!id) return res.status(400).json({ error: "Missing id" }); const order = (await getOrders()).find((row) => row.id === id); if (order) await persistOrder({ ...order, ...fields }); res.json({ ok: true }); });
 app.delete("/api/orders", requireAuth, async (req, res) => { const id = req.body?.id as string; if (!id) return res.status(400).json({ error: "Missing id" }); await deleteOrder(id); res.json({ ok: true }); });
