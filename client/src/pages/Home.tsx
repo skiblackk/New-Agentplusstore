@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 import Chatbot from "@/components/Chatbot";
+import DemoLab from "@/components/DemoLab";
+import OrderDialog from "@/components/OrderDialog";
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -98,6 +100,7 @@ export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
   const [paymentPackage, setPaymentPackage] = useState<string | null>(null);
+  const [orderPackage, setOrderPackage] = useState<"Starter Agent" | "Basic Agent" | "Premium Agent" | "Custom AI Agent" | null>(null);
 
   useEffect(() => { void fetch("/api/payment-config").then((response) => response.json()).then((data: { config?: PaymentConfig }) => setPaymentConfig(data.config || null)).catch(() => undefined);
   }, []);
@@ -154,6 +157,7 @@ export default function Home() {
   };
   const showDemo = () => openWhatsApp("a tailored AgentPlus rollout");
   const openPayment = (packageName: string) => setPaymentPackage(packageName);
+  const openOrder = (packageName: "Starter Agent" | "Basic Agent" | "Premium Agent" | "Custom AI Agent") => setOrderPackage(packageName);
 
   const startFree = () => {
     goTo("plans");
@@ -224,6 +228,8 @@ export default function Home() {
         <div className="hero-ticker"><div className="container ticker-inner"><span>BUILT FOR THE MESSY MIDDLE</span><span className="ticker-line" /><span>BETTER QUESTIONS. FASTER FOLLOW-THROUGH.</span><ArrowDownRight size={17} /></div></div>
       </section>
 
+      <DemoLab />
+
       <section className="proof-strip">
         <div className="container proof-inner">
           <span className="proof-caption">A little more room to think</span>
@@ -257,7 +263,7 @@ export default function Home() {
       </section>
 
       <section className="section plans-section" id="plans">
-        <div className="container"><div className="plans-header" data-reveal><div><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Clear packages, practical outcomes</div><h2>Start with a<br /><em>useful win.</em></h2></div><p className="plans-note">Every package includes setup assistance and one month of free updates. Need a tailored rollout? We can structure installments around your implementation.</p></div><div className="plans-grid" data-reveal="stagger"><article className="plan-card"><div className="plan-label">For small businesses</div><h3>Starter</h3><p>One focused AI system to get your first workflow moving.</p><div className="plan-price"><strong>$500</strong><span>one-time</span></div><button className="button button-outline" onClick={() => openWhatsApp("Starter")}>Ask about Starter <ArrowUpRight size={16} /></button>{paymentConfig?.enabled && <button className="payment-link" onClick={() => openPayment("Starter")}>Pay Starter with USDT</button>}<ul><li><Check size={16} /> WhatsApp AI Agent</li><li><Check size={16} /> Basic lead capture</li><li><Check size={16} /> Email support</li><li><Check size={16} /> Setup assistance</li></ul></article><article className="plan-card plan-featured"><div className="featured-badge">Most popular</div><div className="plan-label">For growing businesses</div><h3>Professional</h3><p>A connected set of agents for comprehensive customer and lead workflows.</p><div className="plan-price"><strong>$1,500</strong><span>one-time</span></div><button className="button button-lime" onClick={() => openWhatsApp("Professional")}>Ask about Professional <ArrowUpRight size={16} /></button>{paymentConfig?.enabled && <button className="payment-link" onClick={() => openPayment("Professional")}>Pay Professional with USDT</button>}<ul><li><Check size={16} /> Everything in Starter</li><li><Check size={16} /> Web AI Chatbot</li><li><Check size={16} /> Google Maps optimization</li><li><Check size={16} /> Analytics + custom training</li></ul></article><article className="plan-card"><div className="plan-label">For large-scale operations</div><h3>Enterprise</h3><p>Custom integrations, multiple agents, and a dedicated path to scale.</p><div className="plan-price"><strong>Custom</strong><span>pricing</span></div><button className="button button-outline" onClick={() => openWhatsApp("Enterprise")}>Discuss Enterprise <ArrowUpRight size={16} /></button><ul><li><Check size={16} /> Everything in Professional</li><li><Check size={16} /> Multiple AI agents</li><li><Check size={16} /> Custom integrations</li><li><Check size={16} /> Dedicated account manager</li></ul></article></div><div className="installment-note" data-reveal><strong>Need a payment plan?</strong><span>Ask about 2-installment, 3-installment, or custom monthly arrangements for larger implementations.</span></div></div>
+        <div className="container"><div className="plans-header" data-reveal><div><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Clear packages, practical outcomes</div><h2>Start with a<br /><em>useful win.</em></h2></div><p className="plans-note">Every package includes setup assistance and one month of free updates. Need a tailored rollout? We can structure installments around your implementation.</p></div><div className="plans-grid" data-reveal="stagger"><article className="plan-card"><div className="plan-label">For small businesses</div><h3>Starter Agent</h3><p>One focused AI system to get your first workflow moving.</p><div className="plan-price"><strong>$400</strong><span>one-time</span></div><button className="button button-outline" onClick={() => openOrder("Starter Agent")}>Order Starter · $400 <ArrowUpRight size={16} /></button><ul><li><Check size={16} /> WhatsApp AI Agent</li><li><Check size={16} /> Basic lead capture</li><li><Check size={16} /> Email support</li><li><Check size={16} /> Setup assistance</li></ul></article><article className="plan-card plan-featured"><div className="featured-badge">Most popular</div><div className="plan-label">For growing businesses</div><h3>Basic Agent</h3><p>A connected set of agents for comprehensive customer and lead workflows.</p><div className="plan-price"><strong>$799</strong><span>one-time</span></div><button className="button button-lime" onClick={() => openOrder("Basic Agent")}>Order Basic · $799 <ArrowUpRight size={16} /></button><ul><li><Check size={16} /> Everything in Starter</li><li><Check size={16} /> Web AI Chatbot</li><li><Check size={16} /> Google Maps optimization</li><li><Check size={16} /> Analytics + custom training</li></ul></article><article className="plan-card"><div className="plan-label">For large-scale operations</div><h3>Premium Agent</h3><p>Custom integrations, multiple agents, and a dedicated path to scale.</p><div className="plan-price"><strong>$1,500</strong><span>one-time</span></div><button className="button button-outline" onClick={() => openOrder("Premium Agent")}>Order Premium · $1,500 <ArrowUpRight size={16} /></button><ul><li><Check size={16} /> Everything in Professional</li><li><Check size={16} /> Multiple AI agents</li><li><Check size={16} /> Custom integrations</li><li><Check size={16} /> Dedicated account manager</li></ul></article></div><article className="custom-plan-card" data-reveal><div><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Need something bigger?</div><h3>Custom AI Agents</h3><p>Multiple agents, CRM and WhatsApp integrations, internal systems, or a complete custom deployment.</p></div><div><strong>$3,000 – $25,000+</strong><span>built around your business</span><button className="button button-dark" onClick={() => openOrder("Custom AI Agent")}>Request custom agent <ArrowUpRight size={15} /></button></div></article></div>
       </section>
 
       <section className="section quote-section"><div className="container quote-layout" data-reveal><div className="quote-mark">“</div><blockquote>AgentPlus feels less like another tool and more like the calm, capable operator I wish I had hired six months ago.</blockquote><div className="quote-author"><span className="quote-avatar">N</span><span><strong>Nia Collins</strong><small>Founder, The Field Office</small></span></div></div></section>
@@ -269,6 +275,7 @@ export default function Home() {
       <footer className="site-footer"><div className="container footer-top"><button className="brand footer-brand" onClick={() => goTo("top")}><BrandMark /><span>agent<span className="brand-plus">plus</span></span></button><div className="footer-links"><div><span className="footer-label">Explore</span><button onClick={() => goTo("why")}>Why AgentPlus</button><button onClick={() => goTo("agents")}>Agents</button><a href="/services">Services</a><button onClick={() => goTo("plans")}>Pricing</button></div><div><span className="footer-label">Company</span><a href="/about">About</a><a href="/blog">Field notes</a><a href="/contact">Contact</a></div><div><span className="footer-label">Say hello</span><a href="mailto:hello@agentplus.store">hello@agentplus.store</a><a href="#faq">FAQ</a><a href="#top">Back to top ↑</a></div></div></div><div className="container footer-bottom"><span>© 2026 AgentPlus</span><span>Built for better work, not more work.</span><div><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div></footer>
       <Chatbot />
       {paymentPackage && paymentConfig?.enabled && <PaymentDialog packageName={paymentPackage} config={paymentConfig} close={() => setPaymentPackage(null)} />}
+      {orderPackage && <OrderDialog packageName={orderPackage} close={() => setOrderPackage(null)} />}
     </main>
   );
 }

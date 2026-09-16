@@ -60,6 +60,24 @@ create table if not exists public.agentplus_notification_history (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.agentplus_agents (
+  id text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.agentplus_knowledge (
+  id text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.agentplus_deployments (
+  id text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists agentplus_orders_created_at_idx on public.agentplus_orders (created_at desc);
 create index if not exists agentplus_visitors_created_at_idx on public.agentplus_visitors (created_at desc);
 create index if not exists agentplus_sessions_expires_at_idx on public.agentplus_sessions (expires_at);
@@ -68,6 +86,9 @@ create unique index if not exists agentplus_subscribers_email_idx on public.agen
 create index if not exists agentplus_articles_created_at_idx on public.agentplus_articles (created_at desc);
 create index if not exists agentplus_push_subscriptions_created_at_idx on public.agentplus_push_subscriptions (created_at desc);
 create index if not exists agentplus_notification_history_created_at_idx on public.agentplus_notification_history (created_at desc);
+create index if not exists agentplus_agents_created_at_idx on public.agentplus_agents (created_at desc);
+create index if not exists agentplus_knowledge_created_at_idx on public.agentplus_knowledge (created_at desc);
+create index if not exists agentplus_deployments_created_at_idx on public.agentplus_deployments (created_at desc);
 
 -- The server uses the service-role key, so public browser access stays disabled.
 alter table public.agentplus_orders enable row level security;
@@ -80,3 +101,6 @@ alter table public.agentplus_articles enable row level security;
 alter table public.agentplus_push_subscriptions enable row level security;
 alter table public.agentplus_settings enable row level security;
 alter table public.agentplus_notification_history enable row level security;
+alter table public.agentplus_agents enable row level security;
+alter table public.agentplus_knowledge enable row level security;
+alter table public.agentplus_deployments enable row level security;
