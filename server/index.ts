@@ -13,6 +13,7 @@ const port = Number(process.env.PORT || 3000);
 const app = express();
 const httpServer = createServer(app);
 
+app.use((req, res, next) => { const origin = req.headers.origin; if (origin) res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization"); res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); if (req.method === "OPTIONS") return res.sendStatus(204); next(); });
 app.use(express.json({ limit: "1mb" }));
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
@@ -232,11 +233,11 @@ const DEMO = `You are the public AgentPlus free-demo business agent. Give practi
 
 const ATLAS = `You are Atlas, the private AgentPlus admin mind. You remember the full conversation context supplied to you and speak directly to the founder as a senior AI engineer, business strategist, researcher, and project manager. Analyze live leads and visitors, flag stale opportunities, calculate conversion patterns, design client solutions, and write production-ready prompts for WhatsApp bots, web chatbots, support desks, booking bots, lead generation, and operations. Packages are Starter Agent $400 one-time, Basic Agent $799 one-time, Premium Agent $1,500 one-time, Custom AI Agent $3,000-$25,000+ quotation. Be direct, specific, and low-fluff. End strategy responses with **Next step:** and one concrete action.`;
 
-async function callGroq(messages: ChatMessage[], mode: "client" | "admin", dashboardContext?: unknown, searchResults?: unknown) {
+async function callGroq(messages: ChatMessage[], mode: "client" | "admin", dashboardContext?: unknown, searchResults?: unknown, systemOverride?: string) {
   if (!GROQ_KEY) return mode === "admin" ? "Atlas is ready, but GROQ_API_KEY is not configured.\n\n**Next step:** Add the server-side Groq key to enable live reasoning." : "I’m here to help you find the right AgentPlus starting point. Tell me what is taking your team too much time—customer replies, lead capture, support, or operations—and I’ll recommend a package.";
-  const system = mode === "admin" ? `${ATLAS}\n\nLIVE DASHBOARD DATA:\n${JSON.stringify(dashboardContext || {}, null, 2)}\n\nRESEARCH:\n${JSON.stringify(searchResults || {}, null, 2)}` : searchResults ? `${DEMO}\n\nLIVE RESEARCH SOURCES:\n${JSON.stringify(searchResults, null, 2)}` : ARIA;
+  const system = systemOverride || (mode === "admin" ? `${ATLAS}\n\nLIVE DASHBOARD DATA:\n${JSON.stringify(dashboardContext || {}, null, 2)}\n\nRESEARCH:\n${JSON.stringify(searchResults || {}, null, 2)}` : searchResults ? `${DEMO}\n\nLIVE RESEARCH SOURCES:\n${JSON.stringify(searchResults, null, 2)}` : ARIA);
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${GROQ_KEY}` }, body: JSON.stringify({ model: "openai/gpt-oss-120b", messages: [{ role: "system", content: system }, ...messages], max_tokens: mode === "admin" ? 1800 : 900, temperature: 0.72 }), signal: AbortSignal.timeout(25_000) });
-  if (!response.ok) throw new Error(`Groq ${response.status}`);
+  if (!response.ok) { const detail = await response.text(); throw new Error(`Groq ${response.status}: ${detail.slice(0, 500)}`); }
   const payload = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
   return payload.choices?.[0]?.message?.content || "I’m having a moment—please try WhatsApp for the fastest response.";
 }
@@ -313,6 +314,37 @@ async function searchWeb(query: string) {
   const html = await response.text();
   return Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)).slice(0, 6).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").trim() }));
 }
+
+app.post("/api/embed/:publicKey/chat", async (req, res) => {
+  try {
+    const deployments = await getCollection("agentplus_deployments", memory.deployments);
+    const deployment = deployments.find((item) => item.publicKey === req.params.publicKey);
+    if (!deployment) return res.status(404).json({ error: "Agent not found" });
+    const agents = await getCollection("agentplus_agents", memory.agents);
+    const agent = agents.find((item) => item.id === deployment.agentId);
+    if (!agent) return res.status(404).json({ error: "Agent not found" });
+    const messages = Array.isArray(req.body?.messages) ? req.body.messages.filter((item: ChatMessage) => item && ["user", "assistant"].includes(item.role) && typeof item.content === "string").slice(-20) as ChatMessage[] : [];
+    if (!messages.length) return res.status(400).json({ error: "Ask the agent a question first." });
+    const latest = messages[messages.length - 1].content;
+    const shouldResearch = Boolean(req.body?.research) || agent.researchLevel !== "basic";
+    const sources = shouldResearch ? await searchWeb(latest) : [];
+    const knowledge = (await getCollection("agentplus_knowledge", memory.knowledge)).filter((item) => item.agentId === agent.id);
+    const system = `You are ${agent.name}, an embedded AI agent for ${agent.company || "the customer business"}. Answer the visitor's actual question directly and honestly. Do not use canned sales lines, do not pretend to have done work you did not do, and do not push a purchase when the visitor only needs information. Use the business instructions and knowledge below as your primary context. If live research is included, distinguish researched facts from your reasoning and cite source titles/URLs naturally. If you do not know, say what is missing and ask one useful follow-up question. Only recommend an AgentPlus package when the visitor is clearly asking for implementation, pricing, automation, or next steps; explain why the recommendation fits, and offer a no-pressure handoff.
+
+BUSINESS INSTRUCTIONS:
+${agent.instructions}
+
+BUSINESS KNOWLEDGE:
+${agent.knowledge}
+${knowledge.length ? `\nKNOWLEDGE BASE ENTRIES:\n${knowledge.map((item) => `${item.title}: ${item.content}`).join("\n\n")}` : ""}
+\nLIVE RESEARCH RESULTS:\n${JSON.stringify(sources, null, 2)}`;
+    const content = await callGroq(messages, "client", undefined, sources, system);
+    res.json({ content, sources, researchUsed: shouldResearch });
+  } catch (error) {
+    console.error("Embedded agent error", error);
+    res.status(500).json({ error: "The agent could not complete that answer right now." });
+  }
+});
 app.post("/api/demo", async (req, res) => { try { const { messages, mode = "quick" } = req.body as { messages?: ChatMessage[]; mode?: "quick" | "research" }; if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: "No messages" }); if (mode === "research") { const query = messages[messages.length - 1]?.content || ""; const sources = await searchWeb(query); if (!sources.length) return res.status(502).json({ error: "Live research returned no sources. Try a more specific question." }); return res.json({ content: await callGroq(messages, "client", undefined, { sources }), sources }); } res.json({ content: await callGroq(messages, "client") }); } catch (error) { res.status(500).json({ error: "The live demo could not complete this request." }); } });
 app.post("/api/search", requireAuth, async (req, res) => { const query = typeof req.body?.query === "string" ? req.body.query : ""; const url = typeof req.body?.url === "string" ? req.body.url : ""; if (!query && !url) return res.status(400).json({ error: "Provide query or url" }); try { if (url) { const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; AgentPlus/1.0)" }, signal: AbortSignal.timeout(6000) }); const html = await response.text(); return res.json({ type: "scrape", content: html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 3000) }); } const results = await searchWeb(query); res.json({ type: "search", results }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 
