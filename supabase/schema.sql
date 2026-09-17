@@ -104,3 +104,11 @@ alter table public.agentplus_notification_history enable row level security;
 alter table public.agentplus_agents enable row level security;
 alter table public.agentplus_knowledge enable row level security;
 alter table public.agentplus_deployments enable row level security;
+
+create table if not exists public.agentplus_research_reports (
+  id text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists agentplus_research_reports_created_at_idx on public.agentplus_research_reports (created_at desc);
+alter table public.agentplus_research_reports enable row level security;
