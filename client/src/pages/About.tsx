@@ -1,0 +1,26 @@
+import { ArrowUpRight, CheckCircle2, Compass, Cpu, Gamepad2, HeartHandshake, Instagram, Lightbulb, ShieldCheck, Target } from "lucide-react";
+import { Link } from "wouter";
+
+const values = [
+  ["Affordable", "Enterprise-grade AI solutions at prices ambitious businesses can actually work with.", Target],
+  ["Simple", "Clear enough for a busy operator to start without a technical project or long onboarding.", Lightbulb],
+  ["Reliable", "Focused agents, transparent permissions, and support when a workflow really matters.", ShieldCheck],
+  ["Local", "Built with the realities of African teams, customers, channels, and payment systems in mind.", HeartHandshake],
+];
+
+const identities = [
+  ["Joshua Musumbi", "Entrepreneur & founder — the builder behind every identity on this list.", Compass],
+  ["AgentPlus", "His technology venture — AI, automation, and practical software for growing businesses.", Cpu],
+  ["Frozen", "His competitive Call of Duty identity — strategy, adaptability, and the drive to keep improving.", Gamepad2],
+  ["Skiblackk", "His Instagram and social presence — the builds, the wins, and the story in between.", Instagram],
+];
+
+export default function About() {
+  return <main className="subpage about-page">
+    <nav className="subpage-nav container"><Link href="/" className="brand"><img src="/agentplus-logo.png" alt="" aria-hidden="true" className="brand-mark-img" /><span>agent<span className="brand-plus">plus</span></span></Link><Link href="/" className="subpage-back">← Back home</Link></nav>
+    <section className="subpage-hero container about-hero"><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> The people behind the agents</div><h1>AI that feels<br /><em>within reach.</em></h1><p>AgentPlus exists to make practical AI automation accessible to businesses that are building the future from Nairobi to everywhere.</p></section>
+    <section className="about-mission"><div className="container about-mission-grid"><div><span className="mission-number">01 / OUR MISSION</span><h2>Make room for<br /><em>better work.</em></h2></div><div><p>We believe every business, regardless of size or budget, deserves access to world-class technology that saves time, reduces costs, and creates momentum.</p><p>AgentPlus turns that belief into focused agents and systems that handle the repetitive work, so teams can spend more energy on the decisions only they can make.</p><Link className="text-button dark-button" href="/services">Explore the catalog <ArrowUpRight size={16} /></Link></div></div></section>
+    <section className="section about-values"><div className="container"><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> What we stand for</div><h2>Useful beats<br /><em>impressive.</em></h2><div className="values-grid">{values.map(([title, description, Icon]) => <article className="about-value-card" key={title as string}><Icon size={24} /><h3>{title as string}</h3><p>{description as string}</p><CheckCircle2 size={16} className="value-check" /></article>)}</div></div></section>
+    <section className="about-founder"><div className="container about-founder-grid"><div className="about-founder-copy"><span className="mission-number founder-number">02 / THE FOUNDER</span><h2>Built to compete.<br /><em>Wired to build.</em></h2><p>Joshua Musumbi doesn't sit inside one lane. He's a Kenyan entrepreneur and technology builder who founded AgentPlus to put real AI automation within reach of ambitious businesses — and a professional Call of Duty competitor who goes by Frozen when the lights come up.</p><p>AgentPlus is where that instinct to build finds its clearest expression: practical agents, automation, and digital systems built around one belief — useful technology shouldn't be reserved for companies with enterprise budgets. It's still early days, and that's exactly the point; Joshua is building the kind of track record that gets more interesting with every release.</p><p>That same builder's instinct has taken him beyond AgentPlus. Joshua has worked directly with businesses — including SmartSync and a gaming-industry company — on technology and digital solutions, client engagements that have sharpened his ability to solve real problems across genuinely different environments, not just his own.</p><p>Off the clock, the same mindset shows up under a different name. As Frozen, Joshua competes at a high level in Call of Duty — a discipline that runs on the same instincts he brings to entrepreneurship: read the situation, adapt fast, and keep improving even when it's already working.</p><p>Follow the rest of it — the builds, the wins, the in-between — as Skiblackk on Instagram. Joshua Musumbi is still early in his story, and everything so far suggests the most interesting chapters are still ahead.</p><a className="text-button" href="https://www.instagram.com/skiblackk/" target="_blank" rel="noreferrer">Follow @skiblackk <ArrowUpRight size={16} /></a></div><div className="about-founder-identities">{identities.map(([title, description, Icon]) => <article className="founder-identity-card" key={title as string}><Icon size={20} /><h3>{title as string}</h3><p>{description as string}</p></article>)}</div></div></section>
+  </main>;
+}
