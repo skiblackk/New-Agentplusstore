@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { AlertTriangle, ArrowUpRight, ExternalLink, Globe2, MapPin, Search, Sparkles } from "lucide-react";
 import { MapView } from "@/components/Map";
 
@@ -6,17 +6,41 @@ type Source = { title: string; url: string };
 type Business = { name?: string; address?: string; rating?: number; userRatingsTotal?: number; types?: string[]; url?: string; placeId?: string; location?: { lat: number; lng: number } };
 type Message = { role: "user" | "assistant"; content: string; sources?: Source[]; researchUsed?: boolean; systemNotice?: boolean };
 
+function renderInline(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => part.startsWith("**") ? <strong key={index}>{part.slice(2, -2)}</strong> : <Fragment key={index}>{part}</Fragment>);
+}
+
 function formatResearch(content: string) {
-  return content.split("\\n").map((line, index) => {
-    const clean = line.replace(/^#{1,4}\\s*/, "");
-    const heading = /^\\*\\*(.+?)\\*\\*$/.exec(clean.trim());
+  const lines = content.replace(/\\r/g, "").split("\\n");
+  const blocks: React.ReactNode[] = [];
+  let table: string[][] = [];
+
+  const flushTable = () => {
+    if (!table.length) return;
+    blocks.push(<div className="research-table" key={`table-${blocks.length}`}>
+      <div className="research-table-head">{table[0].map((cell, index) => <span key={index}>{renderInline(cell)}</span>)}</div>
+      {table.slice(1).map((row, rowIndex) => <div className="research-table-row" key={rowIndex}>{row.map((cell, index) => <span key={index}>{renderInline(cell)}</span>)}</div>)}
+    </div>);
+    table = [];
+  };
+
+  lines.forEach((line, index) => {
+    const clean = line.trim();
+    if (clean.startsWith("|") && clean.endsWith("|")) {
+      const cells = clean.slice(1, -1).split("|").map((cell) => cell.trim());
+      if (!cells.every((cell) => /^:?-{2,}:?$/.test(cell))) table.push(cells);
+      return;
+    }
+    flushTable();
+    const heading = clean.replace(/^#{1,4}\\s*/, "").match(/^\\*\\*(.+?)\\*\\*$/);
     const bullet = clean.match(/^[-•]\\s+(.*)$/);
-    if (!clean.trim()) return <div key={index} className="research-spacer" />;
-    if (heading) return <h4 key={index}>{heading[1]}</h4>;
-    if (bullet) return <div key={index} className="research-bullet"><span />{bullet[1]}</div>;
-    const parts = clean.split(/(\\*\\*[^*]+\\*\\*)/g);
-    return <p key={index}>{parts.map((part, partIndex) => part.startsWith("**") ? <strong key={partIndex}>{part.slice(2, -2)}</strong> : <Fragment key={partIndex}>{part}</Fragment>)}</p>;
+    if (!clean) blocks.push(<div key={`space-${index}`} className="research-spacer" />);
+    else if (heading) blocks.push(<h4 key={index}>{heading[1]}</h4>);
+    else if (bullet) blocks.push(<div key={index} className="research-bullet"><span />{renderInline(bullet[1])}</div>);
+    else blocks.push(<p key={index}>{renderInline(clean)}</p>);
   });
+  flushTable();
+  return blocks;
 }
 
 const prompts = [
