@@ -2,7 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createHash, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { Response } from "express";
 import webpush from "web-push";
 
@@ -203,6 +203,22 @@ async function saveAtlas(messages: ChatMessage[]) {
 }
 async function clearAtlas() { memory.atlas = []; if (supabaseEnabled) await supabaseRequest("agentplus_memory?id=eq.1", { method: "DELETE" }); else if (redisEnabled) await redis("DEL", "ap:atlas:memory"); }
 
+function createStatelessSession() {
+  const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
+  const payload = String(expiresAt);
+  const signature = createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("hex");
+  return `${payload}.${signature}`;
+}
+
+function validStatelessSession(token: string) {
+  if (!ADMIN_PASSWORD) return false;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature || !/^\d+$/.test(payload) || Number(payload) < Date.now()) return false;
+  const expected = createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("hex");
+  if (signature.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+
 async function createSession(token: string) {
   memory.sessions.add(token);
   if (supabaseEnabled) {
@@ -219,6 +235,7 @@ async function createSession(token: string) {
 }
 async function validSession(token: string) {
   if (!token) return false;
+  if (validStatelessSession(token)) return true;
   if (memory.sessions.has(token)) return true;
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ token: string }>>(`agentplus_sessions?token=eq.${encodeURIComponent(token)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=token&limit=1`); return rows.length > 0; } catch { return false; } }
   if (redisEnabled) { try { return (await redis("GET", `ap:session:${token}`)) === "1"; } catch { return false; } }
@@ -246,7 +263,7 @@ async function callGroq(messages: ChatMessage[], mode: "client" | "admin", dashb
 }
 
 app.get("/api/status", (_req, res) => res.json({ ok: true, backend: backendMode, supabase: supabaseEnabled, redis: redisEnabled, groq: Boolean(GROQ_KEY), adminPassword: Boolean(ADMIN_PASSWORD), browserPush: pushEnabled }));
-app.post("/api/admin-auth", async (req, res) => { const password = typeof req.body?.password === "string" ? req.body.password : ""; if (!ADMIN_PASSWORD) return res.status(503).json({ ok: false, error: "ADMIN_PASSWORD is not configured" }); if (password !== ADMIN_PASSWORD) return res.json({ ok: false }); const token = randomBytes(32).toString("hex"); await createSession(token); res.json({ ok: true, token }); });
+app.post("/api/admin-auth", async (req, res) => { const password = typeof req.body?.password === "string" ? req.body.password : ""; if (!ADMIN_PASSWORD) return res.status(503).json({ ok: false, error: "ADMIN_PASSWORD is not configured" }); if (password !== ADMIN_PASSWORD) return res.json({ ok: false }); const token = createStatelessSession(); await createSession(token); res.json({ ok: true, token }); });
 app.delete("/api/admin-auth", async (req, res) => { const token = typeof req.body?.token === "string" ? req.body.token : ""; if (token) await deleteSession(token); res.json({ ok: true }); });
 
 app.get("/api/articles", async (_req, res) => res.json({ articles: await getArticles() }));
