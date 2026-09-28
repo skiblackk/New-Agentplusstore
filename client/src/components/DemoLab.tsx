@@ -127,7 +127,7 @@ export default function DemoLab() {
                   <p>{message.content}</p>
                   {message.role === "assistant" && !message.systemNotice && (
                     <div className={`research-status ${message.researchUsed ? "live" : "general"}`}>
-                      {message.researchUsed ? "Answered using live web sources" : "Live web search was unavailable for this question — answered from general knowledge"}
+                      {message.researchUsed ? "Verified with live web sources + OpenStreetMap signals" : "Live sources were unavailable — this answer is clearly marked as general guidance"}
                     </div>
                   )}
                   {message.sources?.length ? (
