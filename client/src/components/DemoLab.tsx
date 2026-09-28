@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, ArrowUpRight, ExternalLink, Globe2, MapPin, Search, Sparkles } from "lucide-react";
 import { MapView } from "@/components/Map";
 
@@ -22,36 +22,22 @@ export default function DemoLab() {
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
   const [aiOffline, setAiOffline] = useState(false);
-  const mapRef = useRef<google.maps.Map | null>(null);
-
-  const searchNearby = () => {
-    if (!mapRef.current || !window.google?.maps?.places) {
-      setMapError("The map is still loading. Try again in a moment.");
-      return;
-    }
+  const searchNearby = async () => {
     setMapError("");
-    const service = new window.google.maps.places.PlacesService(mapRef.current);
-    service.textSearch({ query: `${businessType} in ${locationQuery}` }, (results, status) => {
-      if (status !== "OK" || !results?.length) {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&addressdetails=1&q=${encodeURIComponent(`${businessType} in ${locationQuery}`)}`, { headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error("OpenStreetMap search failed");
+      const results = (await response.json()) as Array<{ place_id: number; display_name: string; lat: string; lon: string; type?: string }>;
+      if (!results.length) {
         setMapError("No nearby businesses were found for that search. Try a broader area or category.");
         setNearby([]);
         return;
       }
-      const businesses = results.slice(0, 12).map((place) => ({
-        name: place.name,
-        address: place.formatted_address,
-        rating: place.rating,
-        userRatingsTotal: place.user_ratings_total,
-        types: place.types,
-        url: place.url,
-        placeId: place.place_id,
-        location: place.geometry?.location ? { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() } : undefined,
-      }));
-      setNearby(businesses);
-      const bounds = new window.google.maps.LatLngBounds();
-      businesses.forEach((business) => { if (business.location) bounds.extend(business.location); });
-      if (!bounds.isEmpty()) mapRef.current?.fitBounds(bounds);
-    });
+      setNearby(results.map((place) => ({ name: place.display_name.split(",")[0], address: place.display_name, types: place.type ? [place.type] : [], placeId: String(place.place_id), url: `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`, location: { lat: Number(place.lat), lng: Number(place.lon) } })));
+    } catch {
+      setMapError("OpenStreetMap search is unavailable right now. Please try again.");
+      setNearby([]);
+    }
   };
 
   const send = async (value = input) => {
@@ -71,7 +57,7 @@ export default function DemoLab() {
         setMessages([...next, { role: "assistant", content: "This demo’s AI connection isn’t set up yet on this deployment, so it can’t research anything right now. Message the AgentPlus team on WhatsApp and they’ll walk you through it live.", systemNotice: true }]);
         return;
       }
-      const mapSources = (data.maps?.businesses || []).filter((business) => business.url).map((business) => ({ title: `${business.name || "Nearby business"} on Google Maps`, url: business.url as string }));
+      const mapSources = (data.maps?.businesses || []).filter((business) => business.url).map((business) => ({ title: `${business.name || "Nearby business"} on OpenStreetMap`, url: business.url as string }));
       setMessages([...next, { role: "assistant", content: data.content || data.error || "The demo is unavailable right now.", sources: [...(data.sources || []), ...mapSources], researchUsed: data.researchUsed }]);
     } catch {
       setMessages([...next, { role: "assistant", content: "The demo could not connect. Please try again or talk to Aria below.", systemNotice: true }]);
@@ -100,7 +86,7 @@ export default function DemoLab() {
               <div>
                 <span className="geo-kicker"><MapPin size={13} /> Local market intelligence</span>
                 <h3>See the opportunity around you.</h3>
-                <p>Use Google Maps data to inspect a local sample. Google Earth links are available through the map’s satellite and street-view controls; Aria uses the returned places as observed signals, not proof of business quality.</p>
+                <p>Use OpenStreetMap data to inspect a local sample. The map and search stay live without a paid maps key; Aria uses returned places as observed signals, not proof of business quality.</p>
               </div>
               <Globe2 size={28} />
             </div>
@@ -110,7 +96,7 @@ export default function DemoLab() {
               <button className="button button-dark" onClick={searchNearby}><Search size={14} /> Find nearby businesses</button>
             </div>
             <div className="geo-map-wrap">
-              <MapView className="demo-map" initialCenter={{ lat: -1.286389, lng: 36.817223 }} initialZoom={11} onMapReady={(map) => { mapRef.current = map; setMapReady(true); setMapError(""); }} onError={(message) => { setMapReady(true); setMapError(message); }} />
+              <MapView className="demo-map" initialCenter={{ lat: -1.286389, lng: 36.817223 }} initialZoom={11} markers={nearby.flatMap((business) => business.location ? [{ ...business.location, name: business.name, address: business.address, url: business.url }] : [])} onMapReady={() => { setMapReady(true); setMapError(""); }} />
               {!mapReady && <div className="map-overlay">Loading map intelligence…</div>}
             </div>
             {mapError && <div className="geo-error"><AlertTriangle size={13} /> {mapError}</div>}
