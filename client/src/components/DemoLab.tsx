@@ -1,47 +1,11 @@
-import { Fragment, type ReactNode, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, ArrowUpRight, ExternalLink, Globe2, MapPin, Search, Sparkles } from "lucide-react";
 import { MapView } from "@/components/Map";
+import { AiResponseRenderer } from "@/components/AiResponseRenderer";
 
 type Source = { title: string; url: string };
 type Business = { name?: string; address?: string; rating?: number; userRatingsTotal?: number; types?: string[]; url?: string; placeId?: string; location?: { lat: number; lng: number } };
 type Message = { role: "user" | "assistant"; content: string; sources?: Source[]; researchUsed?: boolean; systemNotice?: boolean };
-
-function renderInline(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => part.startsWith("**") ? <strong key={index}>{part.slice(2, -2)}</strong> : <Fragment key={index}>{part}</Fragment>);
-}
-
-function formatResearch(content: string) {
-  const lines = content.replace(/\\r/g, "").split("\\n");
-  const blocks: React.ReactNode[] = [];
-  let table: string[][] = [];
-
-  const flushTable = () => {
-    if (!table.length) return;
-    blocks.push(<div className="research-table" key={`table-${blocks.length}`}>
-      <div className="research-table-head">{table[0].map((cell, index) => <span key={index}>{renderInline(cell)}</span>)}</div>
-      {table.slice(1).map((row, rowIndex) => <div className="research-table-row" key={rowIndex}>{row.map((cell, index) => <span key={index}>{renderInline(cell)}</span>)}</div>)}
-    </div>);
-    table = [];
-  };
-
-  lines.forEach((line, index) => {
-    const clean = line.trim();
-    if (clean.startsWith("|") && clean.endsWith("|")) {
-      const cells = clean.slice(1, -1).split("|").map((cell) => cell.trim());
-      if (!cells.every((cell) => /^:?-{2,}:?$/.test(cell))) table.push(cells);
-      return;
-    }
-    flushTable();
-    const heading = clean.replace(/^#{1,4}\\s*/, "").match(/^\\*\\*(.+?)\\*\\*$/);
-    const bullet = clean.match(/^[-•]\\s+(.*)$/);
-    if (!clean) blocks.push(<div key={`space-${index}`} className="research-spacer" />);
-    else if (heading) blocks.push(<h4 key={index}>{heading[1]}</h4>);
-    else if (bullet) blocks.push(<div key={index} className="research-bullet"><span />{renderInline(bullet[1])}</div>);
-    else blocks.push(<p key={index}>{renderInline(clean)}</p>);
-  });
-  flushTable();
-  return blocks;
-}
 
 const prompts = [
   "Research website development companies in Nairobi and show me how to compete.",
@@ -161,7 +125,7 @@ export default function DemoLab() {
               {messages.length ? messages.map((message, index) => (
                 <article className={`demo-message ${message.role} ${message.systemNotice ? "system-notice" : ""}`} key={`${message.role}-${index}`}>
                   <span>{message.role === "user" ? "You" : message.systemNotice ? "Connection notice" : "AgentPlus"}</span>
-                  <div className="research-answer">{message.role === "assistant" && !message.systemNotice ? formatResearch(message.content) : <p>{message.content}</p>}</div>
+                  <div className="research-answer">{message.role === "assistant" && !message.systemNotice ? <AiResponseRenderer content={message.content} /> : <p>{message.content}</p>}</div>
                   {message.role === "assistant" && !message.systemNotice && (
                     <div className={`research-status ${message.researchUsed ? "live" : "general"}`}>
                       {message.researchUsed ? "Verified with live web sources + OpenStreetMap signals" : "Live sources were unavailable — this answer is clearly marked as general guidance"}
