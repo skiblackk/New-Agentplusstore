@@ -1,7 +1,20 @@
-.ai-report { color: inherit; font-size: 14px; line-height: 1.72; max-width: 78ch; }
+.ai-report { color: #34322d; font-size: 14px; line-height: 1.72; max-width: 78ch; }
 .ai-report > *:first-child { margin-top: 0; }
 .ai-report > *:last-child { margin-bottom: 0; }
-.ai-report p { margin: 0 0 1.05rem; color: inherit; }
+.ai-report p { margin: 0 0 1.05rem; color: #34322d; }
+.ai-report .ai-report-title,
+.ai-report .ai-report-section-title,
+.ai-report .ai-report-subtitle,
+.ai-report .ai-report-kicker,
+.ai-report strong,
+.ai-report em,
+.ai-report li,
+.ai-report td,
+.ai-report th,
+.ai-report .ai-callout,
+.ai-report .ai-callout p { color: inherit; }
+.ai-report strong { color: #201f1b; }
+.ai-report em { color: #51466a; }
 .ai-report-title { margin: 0 0 1.25rem; font-family: "Space Grotesk", sans-serif; font-size: clamp(2rem, 4vw, 3.25rem); line-height: .98; letter-spacing: -.06em; font-weight: 600; color: #f7f6f2; }
 .ai-report-section-title { margin: 2.5rem 0 .85rem; padding-top: 1.25rem; border-top: 1px solid rgba(255,255,255,.1); font-family: "Space Grotesk", sans-serif; font-size: clamp(1.35rem, 2vw, 1.8rem); line-height: 1.08; letter-spacing: -.045em; color: #ff9a42; }
 .ai-report-subtitle { margin: 1.8rem 0 .65rem; font-family: "Space Grotesk", sans-serif; font-size: 1.1rem; line-height: 1.2; color: #f1eee7; }
