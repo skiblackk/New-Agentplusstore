@@ -323,6 +323,25 @@ async function searchWeb(query: string) {
   return Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)).slice(0, 6).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").trim() }));
 }
 
+type OSMBusiness = { name: string; address: string; type?: string; placeId: string; url: string; location: { lat: number; lng: number } };
+
+async function searchOpenStreetMap(query: string): Promise<OSMBusiness[]> {
+  const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=12&addressdetails=1&q=${encodeURIComponent(query)}`, {
+    headers: { Accept: "application/json", "User-Agent": "AgentPlus/1.0 (live research agent)" },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error(`OpenStreetMap ${response.status}`);
+  const results = await response.json() as Array<{ place_id: number; display_name: string; lat: string; lon: string; type?: string }>;
+  return results.filter((place) => Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lon))).map((place) => ({
+    name: place.display_name.split(",")[0],
+    address: place.display_name,
+    type: place.type,
+    placeId: String(place.place_id),
+    url: `https://www.openstreetmap.org/?mlat=${place.lat}&mlon=${place.lon}#map=18/${place.lat}/${place.lon}`,
+    location: { lat: Number(place.lat), lng: Number(place.lon) },
+  }));
+}
+
 app.post("/api/embed/:publicKey/chat", async (req, res) => {
   try {
     const deployments = await getCollection("agentplus_deployments", memory.deployments);
@@ -336,6 +355,10 @@ app.post("/api/embed/:publicKey/chat", async (req, res) => {
     const latest = messages[messages.length - 1].content;
     const shouldResearch = Boolean(req.body?.research) || agent.researchLevel !== "basic";
     const sources = shouldResearch ? await searchWeb(latest) : [];
+    let mapBusinesses: OSMBusiness[] = [];
+    if (shouldResearch) {
+      try { mapBusinesses = await searchOpenStreetMap(latest); } catch (error) { console.error("OpenStreetMap agent search failed", error); }
+    }
     const knowledge = (await getCollection("agentplus_knowledge", memory.knowledge)).filter((item) => item.agentId === agent.id);
     const system = `You are ${agent.name}, an embedded AI agent for ${agent.company || "the customer business"}. Answer the visitor's actual question directly and honestly. Do not use canned sales lines, do not pretend to have done work you did not do, and do not push a purchase when the visitor only needs information. Use the business instructions and knowledge below as your primary context. If live research is included, distinguish researched facts from your reasoning and cite source titles/URLs naturally. If you do not know, say what is missing and ask one useful follow-up question. Only recommend an AgentPlus package when the visitor is clearly asking for implementation, pricing, automation, or next steps; explain why the recommendation fits, and offer a no-pressure handoff.
 
@@ -345,16 +368,17 @@ ${agent.instructions}
 BUSINESS KNOWLEDGE:
 ${agent.knowledge}
 ${knowledge.length ? `\nKNOWLEDGE BASE ENTRIES:\n${knowledge.map((item) => `${item.title}: ${item.content}`).join("\n\n")}` : ""}
-\nLIVE RESEARCH RESULTS:\n${JSON.stringify(sources, null, 2)}`;
-    const content = await callGroq(messages, "client", undefined, sources, system);
-    res.json({ content, sources, researchUsed: shouldResearch });
+    \nLIVE RESEARCH RESULTS:\n${JSON.stringify(sources, null, 2)}\n\nOPENSTREETMAP BUSINESS RESULTS:\n${JSON.stringify(mapBusinesses, null, 2)}`;
+    const content = await callGroq(messages, "client", undefined, { webSources: sources, openStreetMapBusinesses: mapBusinesses }, system);
+    const mapSources = mapBusinesses.map((business) => ({ title: `${business.name} on OpenStreetMap`, url: business.url }));
+    res.json({ content, sources: [...sources, ...mapSources], maps: { provider: "OpenStreetMap", businesses: mapBusinesses }, researchUsed: shouldResearch });
   } catch (error) {
     console.error("Embedded agent error", error);
     res.status(500).json({ error: "The agent could not complete that answer right now." });
   }
 });
 const DEMO_FALLBACK = "The live research demo needs an AI connection to run right now, so I can't put together a real analysis for you this moment. Please try again shortly, or message the AgentPlus team on WhatsApp and we'll walk you through it directly: https://wa.me/254729053520";
-app.post("/api/demo", async (req, res) => { try { const { messages, mode = "quick", locationContext } = req.body as { messages?: ChatMessage[]; mode?: "quick" | "research"; locationContext?: { query?: string; center?: { lat: number; lng: number }; businesses?: Array<Record<string, unknown>> } }; if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: "No messages" }); if (mode === "research" || locationContext?.businesses?.length) { const query = messages[messages.length - 1]?.content || locationContext?.query || ""; let sources: Array<{ url: string; title: string }> = []; try { sources = await searchWeb(query); } catch (error) { console.error("searchWeb failed", error); } const noLiveSources = !sources.length && !locationContext?.businesses?.length; const mapPrompt = locationContext?.businesses?.length ? `\n\nGOOGLE MAPS NEARBY BUSINESS CONTEXT (retrieved from the visitor's selected area):\n${JSON.stringify(locationContext, null, 2)}\nUse this to compare nearby businesses, identify patterns, gaps, positioning, and practical opportunities. Treat ratings, names, addresses, and categories as observed map data, not proof of business quality. Include Google Maps/Earth links when useful.` : ""; const researchPrompt = `You are the AgentPlus free demo research analyst. Answer the visitor's actual question using live external research${locationContext?.businesses?.length ? " and the Google Maps nearby-business context" : ""}. Separate sourced facts, observed local signals, and your analysis. Name the publisher/company behind each web finding and name each restaurant/company/place behind each map signal. Do not invent facts, do not overstate what map ratings prove, and clearly state when the sample is incomplete. When useful, provide a concise competitive read, opportunity gaps, recommended positioning, 3-5 actions, metrics, and a next 7-day experiment. Do not push a package unless the visitor asks about implementation or pricing.${mapPrompt}${noLiveSources ? "\n\nNOTE: Live web search returned no results this time (search backend unavailable). Answer from your own knowledge instead, tell the visitor live sources were unavailable for this query, and suggest they rephrase or try again." : ""}`; const content = await callGroq(messages, "client", undefined, { webSources: sources, locationContext }, `${researchPrompt}${sources.length ? `\n\nLIVE WEB SOURCES:\n${JSON.stringify(sources, null, 2)}` : ""}`, DEMO_FALLBACK); return res.json({ content, sources, maps: locationContext || null, researchUsed: sources.length > 0, aiAvailable: Boolean(GROQ_KEY) }); } res.json({ content: await callGroq(messages, "client", undefined, undefined, undefined, DEMO_FALLBACK), researchUsed: false, aiAvailable: Boolean(GROQ_KEY) }); } catch (error) { console.error("Demo research error", error); res.status(500).json({ error: "The live demo could not complete this request." }); } });
+app.post("/api/demo", async (req, res) => { try { const { messages, mode = "quick", locationContext } = req.body as { messages?: ChatMessage[]; mode?: "quick" | "research"; locationContext?: { query?: string; center?: { lat: number; lng: number }; businesses?: Array<Record<string, unknown>> } }; if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: "No messages" }); if (mode === "research" || locationContext?.businesses?.length) { const query = messages[messages.length - 1]?.content || locationContext?.query || ""; let sources: Array<{ url: string; title: string }> = []; try { sources = await searchWeb(query); } catch (error) { console.error("searchWeb failed", error); } const noLiveSources = !sources.length && !locationContext?.businesses?.length; const mapPrompt = locationContext?.businesses?.length ? `\n\nOPENSTREETMAP NEARBY BUSINESS CONTEXT (retrieved from the visitor's selected area):\n${JSON.stringify(locationContext, null, 2)}\nUse this to compare nearby businesses, identify patterns, gaps, positioning, and practical opportunities. Treat ratings, names, addresses, and categories as observed map data, not proof of business quality. Include Google Maps/Earth links when useful.` : ""; const researchPrompt = `You are the AgentPlus free demo research analyst. Answer the visitor's actual question using live external research${locationContext?.businesses?.length ? " and the Google Maps nearby-business context" : ""}. Separate sourced facts, observed local signals, and your analysis. Name the publisher/company behind each web finding and name each restaurant/company/place behind each map signal. Do not invent facts, do not overstate what map ratings prove, and clearly state when the sample is incomplete. When useful, provide a concise competitive read, opportunity gaps, recommended positioning, 3-5 actions, metrics, and a next 7-day experiment. Do not push a package unless the visitor asks about implementation or pricing.${mapPrompt}${noLiveSources ? "\n\nNOTE: Live web search returned no results this time (search backend unavailable). Answer from your own knowledge instead, tell the visitor live sources were unavailable for this query, and suggest they rephrase or try again." : ""}`; const content = await callGroq(messages, "client", undefined, { webSources: sources, locationContext }, `${researchPrompt}${sources.length ? `\n\nLIVE WEB SOURCES:\n${JSON.stringify(sources, null, 2)}` : ""}`, DEMO_FALLBACK); return res.json({ content, sources, maps: locationContext || null, researchUsed: sources.length > 0, aiAvailable: Boolean(GROQ_KEY) }); } res.json({ content: await callGroq(messages, "client", undefined, undefined, undefined, DEMO_FALLBACK), researchUsed: false, aiAvailable: Boolean(GROQ_KEY) }); } catch (error) { console.error("Demo research error", error); res.status(500).json({ error: "The live demo could not complete this request." }); } });
 app.post("/api/search", requireAuth, async (req, res) => { const query = typeof req.body?.query === "string" ? req.body.query : ""; const url = typeof req.body?.url === "string" ? req.body.url : ""; if (!query && !url) return res.status(400).json({ error: "Provide query or url" }); try { if (url) { const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; AgentPlus/1.0)" }, signal: AbortSignal.timeout(6000) }); const html = await response.text(); return res.json({ type: "scrape", content: html.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 3000) }); } const results = await searchWeb(query); res.json({ type: "search", results }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 
 export async function startServer() {
