@@ -318,12 +318,48 @@ app.post("/api/atlas-memory", requireAuth, async (req, res) => { await saveAtlas
 app.delete("/api/atlas-memory", requireAuth, async (_req, res) => { await clearAtlas(); res.json({ ok: true }); });
 app.post("/api/chat", async (req, res) => { try { const { messages, mode = "client", dashboardContext, searchResults, researchMode = "quick" } = req.body as { messages?: ChatMessage[]; mode?: "client" | "admin"; dashboardContext?: unknown; searchResults?: unknown; researchMode?: "quick" | "research" | "strategy" }; if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: "No messages" }); if (mode === "client" && researchMode !== "quick") { const query = messages[messages.length - 1]?.content || ""; const sources = await searchWeb(query); const strategyPrompt = researchMode === "strategy" ? `You are Aria, AgentPlus's research strategist. Answer the visitor's actual question, then turn the external findings into a practical strategy. Separate: 1) what the sources say, 2) what it means for this business, 3) a prioritized strategy with 3-5 actions, 4) metrics to track, 5) risks and assumptions, and 6) the next 7-day step. Name the publisher or company for every material finding using a clear “Source: [name]” label. For local research, name each restaurant, company, or place exactly as returned by Google Maps before describing its rating, address, category, or observed signal. Cite source titles and URLs naturally. Do not invent facts, do not claim certainty when the sources are weak, and do not pressure the visitor to buy. Only mention AgentPlus packages if the visitor asks for implementation, pricing, or help executing the strategy.` : `You are Aria, AgentPlus's external market research assistant. Answer the visitor's question using the live research results below. Distinguish sourced facts from your analysis, cite sources naturally, call out gaps or conflicting signals, and ask one useful follow-up if the question is too broad. Do not use canned sales lines or push a package unless the visitor asks about implementation or pricing.`; const content = await callGroq(messages, "client", undefined, { sources }, `${strategyPrompt}\n\nLIVE EXTERNAL RESEARCH RESULTS:\n${JSON.stringify(sources, null, 2)}`); return res.json({ content, sources, researchUsed: true, researchMode }); } res.json({ content: await callGroq(messages, mode, dashboardContext, searchResults), researchUsed: false, researchMode, aiAvailable: Boolean(GROQ_KEY) }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 async function searchWeb(query: string) {
-  const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, { headers: { "User-Agent": "Mozilla/5.0 (compatible; AgentPlus/1.0)" }, signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error(`Web search ${response.status}`);
-  const html = await response.text();
-  const results = Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)).slice(0, 6).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").trim() }));
-  if (!results.length) throw new Error("Web search returned no indexed results");
-  return results;
+  const encodedQuery = encodeURIComponent(query.trim());
+  const headers = { "User-Agent": "Mozilla/5.0 (compatible; AgentPlus/1.0; +https://agentplus.store)" };
+  const providers = [
+    async () => {
+      const response = await fetch(`https://www.google.com/search?udm=14&q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`Google ${response.status}`);
+      const html = await response.text();
+      return Array.from(html.matchAll(/<a href="(https?:\/\/[^"&]+)"[^>]*>([\s\S]*?)<\/a>/g)).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() })).filter((item) => item.title.length > 4 && !item.url.includes("google.com")).slice(0, 8);
+    },
+    async () => {
+      const response = await fetch(`https://www.bing.com/search?format=rss&q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`Bing ${response.status}`);
+      const xml = await response.text();
+      return Array.from(xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>(https?:\/\/[^<]+)<\/link>[\s\S]*?<\/item>/g)).slice(0, 8).map((match) => ({ title: match[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim(), url: match[2].trim() }));
+    },
+    async () => {
+      const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`DuckDuckGo ${response.status}`);
+      const html = await response.text();
+      return Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)).slice(0, 8).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() }));
+    },
+    async () => {
+      const response = await fetch(`https://www.google.com/search?udm=14&q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`Google ${response.status}`);
+      const html = await response.text();
+      return Array.from(html.matchAll(/<a href="(https?:\/\/[^"&]+)"[^>]*>([\s\S]*?)<\/a>/g)).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() })).filter((item) => item.title.length > 4 && !item.url.includes("google.com")).slice(0, 6);
+    },
+    async () => {
+      const response = await fetch(`https://www.google.com/alerts/feeds/00000000000000000000/${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`Search fallback ${response.status}`);
+      return [];
+    },
+  ];
+  for (const provider of providers) {
+    try {
+      const results = await provider();
+      if (results.length) return results;
+    } catch (error) {
+      console.error("[v0] web search provider failed", error);
+    }
+  }
+  throw new Error("All live web search providers returned no results");
 }
 
 type OSMBusiness = { name: string; address: string; type?: string; placeId: string; url: string; location: { lat: number; lng: number } };

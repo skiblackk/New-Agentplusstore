@@ -1,10 +1,23 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { AlertTriangle, ArrowUpRight, ExternalLink, Globe2, MapPin, Search, Sparkles } from "lucide-react";
 import { MapView } from "@/components/Map";
 
 type Source = { title: string; url: string };
 type Business = { name?: string; address?: string; rating?: number; userRatingsTotal?: number; types?: string[]; url?: string; placeId?: string; location?: { lat: number; lng: number } };
 type Message = { role: "user" | "assistant"; content: string; sources?: Source[]; researchUsed?: boolean; systemNotice?: boolean };
+
+function formatResearch(content: string) {
+  return content.split("\\n").map((line, index) => {
+    const clean = line.replace(/^#{1,4}\\s*/, "");
+    const heading = /^\\*\\*(.+?)\\*\\*$/.exec(clean.trim());
+    const bullet = clean.match(/^[-•]\\s+(.*)$/);
+    if (!clean.trim()) return <div key={index} className="research-spacer" />;
+    if (heading) return <h4 key={index}>{heading[1]}</h4>;
+    if (bullet) return <div key={index} className="research-bullet"><span />{bullet[1]}</div>;
+    const parts = clean.split(/(\\*\\*[^*]+\\*\\*)/g);
+    return <p key={index}>{parts.map((part, partIndex) => part.startsWith("**") ? <strong key={partIndex}>{part.slice(2, -2)}</strong> : <Fragment key={partIndex}>{part}</Fragment>)}</p>;
+  });
+}
 
 const prompts = [
   "Research website development companies in Nairobi and show me how to compete.",
@@ -124,10 +137,10 @@ export default function DemoLab() {
               {messages.length ? messages.map((message, index) => (
                 <article className={`demo-message ${message.role} ${message.systemNotice ? "system-notice" : ""}`} key={`${message.role}-${index}`}>
                   <span>{message.role === "user" ? "You" : message.systemNotice ? "Connection notice" : "AgentPlus"}</span>
-                  <p>{message.content}</p>
+                  <div className="research-answer">{message.role === "assistant" && !message.systemNotice ? formatResearch(message.content) : <p>{message.content}</p>}</div>
                   {message.role === "assistant" && !message.systemNotice && (
                     <div className={`research-status ${message.researchUsed ? "live" : "general"}`}>
-                      {message.researchUsed ? "Answered using live web sources" : "Live web search was unavailable for this question — answered from general knowledge"}
+                      {message.researchUsed ? "Verified with live web sources + OpenStreetMap signals" : "Live sources were unavailable — this answer is clearly marked as general guidance"}
                     </div>
                   )}
                   {message.sources?.length ? (
