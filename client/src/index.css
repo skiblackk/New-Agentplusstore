@@ -392,6 +392,12 @@ button { font: inherit; }
 .demo-message { max-width:84%; margin-bottom:14px; padding:14px 16px; border-radius:15px; line-height:1.6; font-size:14px; white-space:pre-wrap; }
 .demo-message span { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.14em; font-weight:800; margin-bottom:7px; opacity:.65; }
 .demo-message p { margin:0; }
+.research-answer { display:flex; flex-direction:column; gap:8px; }
+.research-answer h4 { margin:4px 0 0; color:#a64d09; font-size:11px; line-height:1.3; text-transform:uppercase; letter-spacing:.08em; }
+.research-answer p { line-height:1.65; }
+.research-bullet { display:flex; gap:8px; align-items:flex-start; line-height:1.55; }
+.research-bullet span { width:5px; height:5px; margin-top:8px; border-radius:50%; flex:0 0 auto; background:#ff7800; }
+.research-spacer { height:2px; }
 .demo-message.user { margin-left:auto; background:#171715; color:#fff; border-bottom-right-radius:4px; }
 .demo-message.assistant { background:#fff; color:#34332e; border-bottom-left-radius:4px; }
 .demo-typing { color:#cf5e00; }

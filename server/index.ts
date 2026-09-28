@@ -322,10 +322,22 @@ async function searchWeb(query: string) {
   const headers = { "User-Agent": "Mozilla/5.0 (compatible; AgentPlus/1.0; +https://agentplus.store)" };
   const providers = [
     async () => {
+      const response = await fetch(`https://www.google.com/search?udm=14&q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`Google ${response.status}`);
+      const html = await response.text();
+      return Array.from(html.matchAll(/<a href="(https?:\/\/[^"&]+)"[^>]*>([\s\S]*?)<\/a>/g)).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() })).filter((item) => item.title.length > 4 && !item.url.includes("google.com")).slice(0, 8);
+    },
+    async () => {
+      const response = await fetch(`https://www.bing.com/search?format=rss&q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error(`Bing ${response.status}`);
+      const xml = await response.text();
+      return Array.from(xml.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>(https?:\/\/[^<]+)<\/link>[\s\S]*?<\/item>/g)).slice(0, 8).map((match) => ({ title: match[1].replace(/<!\[CDATA\[|\]\]>/g, "").trim(), url: match[2].trim() }));
+    },
+    async () => {
       const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
       if (!response.ok) throw new Error(`DuckDuckGo ${response.status}`);
       const html = await response.text();
-      return Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)).slice(0, 6).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() }));
+      return Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)).slice(0, 8).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim() }));
     },
     async () => {
       const response = await fetch(`https://www.google.com/search?udm=14&q=${encodedQuery}`, { headers, signal: AbortSignal.timeout(8000) });
