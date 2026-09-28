@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { AlertTriangle, Bot, ChevronDown, ExternalLink, MessageCircle, Search, Send, Sparkles, X } from "lucide-react";
+import { AiResponseRenderer } from "@/components/AiResponseRenderer";
 
 type Source = { title: string; url: string };
 type Message = { role: "user" | "assistant"; content: string; sources?: Source[]; researchUsed?: boolean; systemNotice?: boolean };
@@ -29,21 +30,6 @@ function trackWhatsApp(service: string) {
       content: params.get("utm_content") || undefined,
     }),
   }).catch(() => undefined);
-}
-
-function ResearchAnswer({ content }: { content: string }) {
-  return (
-    <div className="research-answer">
-      {content.split("\n").map((line, index) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div className="research-space" key={index} />;
-        if (/^#{1,3}\s/.test(trimmed)) return <h4 key={index}>{trimmed.replace(/^#{1,3}\s*/, "")}</h4>;
-        if (/^\*\*\d+\./.test(trimmed) || /^\d+\./.test(trimmed)) return <div className="research-step" key={index}>{trimmed.replace(/^\*\*/, "").replace(/\*\*$/, "")}</div>;
-        if (/^\|/.test(trimmed)) return <div className="research-table-line" key={index}>{trimmed}</div>;
-        return <div key={index}>{line}</div>;
-      })}
-    </div>
-  );
 }
 
 export default function Chatbot() {
@@ -138,7 +124,7 @@ export default function Chatbot() {
             {messages.map((message, index) => (
               <div className={`chat-message ${message.role} ${message.systemNotice ? "system-notice" : ""} ${loading && message.role === "assistant" && index === messages.length - 1 ? "typing-message" : ""}`} key={`${message.role}-${index}`}>
                 {message.systemNotice && <div className="notice-label"><AlertTriangle size={12} /> Connection notice</div>}
-                {message.role === "assistant" ? <ResearchAnswer content={message.content} /> : <div>{message.content}</div>}
+                {message.role === "assistant" ? <AiResponseRenderer content={message.content} className="chat-ai-report" /> : <div>{message.content}</div>}
                 {message.researchUsed && message.sources?.length ? (
                   <div className="aria-sources">
                     <strong><Search size={12} /> Sources named in this brief</strong>
