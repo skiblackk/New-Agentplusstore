@@ -435,6 +435,21 @@ button { font: inherit; }
 .aria-sources strong { display:flex; align-items:center; gap:5px; color:#ffb071; font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
 .aria-sources a { display:flex; align-items:center; justify-content:space-between; gap:7px; max-width:100%; overflow:hidden; color:#ffb071; font-size:10px; line-height:1.3; text-decoration:none; }
 .aria-sources a:hover { color:#fff; }
+/* Keep the shared AI renderer readable inside Aria's dark chat surface. */
+.chat-panel .chat-ai-report { color:#f1eee7; }
+.chat-panel .chat-ai-report p,
+.chat-panel .chat-ai-report li,
+.chat-panel .chat-ai-report td,
+.chat-panel .chat-ai-report .ai-callout,
+.chat-panel .chat-ai-report .ai-callout p { color:#e8e5de; }
+.chat-panel .chat-ai-report strong { color:#fff; }
+.chat-panel .chat-ai-report em { color:#f0d7ff; }
+.chat-panel .chat-ai-report .ai-report-section-title,
+.chat-panel .chat-ai-report .ai-report-kicker { color:#ffb071; }
+.chat-panel .chat-ai-report .ai-report-subtitle { color:#f7f6f2; }
+.chat-panel .chat-ai-report th { color:#ffc28d; }
+.chat-panel .chat-ai-report td { color:#e8e5de; }
+.chat-panel .chat-ai-report a { color:#ffbd7b; }
 @media (max-width: 620px) { .aria-mode-switcher { overflow-x:auto; } .aria-mode-switcher button { white-space:nowrap; } }
 
 .geo-research { margin: 20px 22px 0; padding: 18px; border: 1px solid #d8d5ca; border-radius: 10px; background: #e9e7df; }
