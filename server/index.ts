@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 import { createHash, randomBytes } from "crypto";
 import type { Response } from "express";
 import webpush from "web-push";
-import { createServer as createViteServer } from "vite";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -388,6 +387,7 @@ async function startServer() {
     app.use(express.static(staticPath));
     app.get("*", (_req, res) => res.sendFile(path.join(staticPath, "index.html")));
   } else {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({ server: { middlewareMode: true, hmr: { server: httpServer } }, appType: "spa" });
     app.use(vite.middlewares);
     app.use("*", async (req, res, next) => { try { const template = await vite.transformIndexHtml(req.originalUrl, await (await import("fs/promises")).readFile(path.resolve(__dirname, "..", "client", "index.html"), "utf-8")); res.status(200).set({ "Content-Type": "text/html" }).end(template); } catch (error) { vite.ssrFixStacktrace(error as Error); next(error); } });
