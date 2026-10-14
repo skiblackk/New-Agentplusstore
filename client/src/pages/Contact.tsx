@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 const methods = [
   ["WhatsApp", "Chat with us instantly", MessageCircle, "https://wa.me/254729053520?text=Hi%20AgentPlus%2C%20I%20want%20to%20learn%20more.", "Message us"],
-  ["Email", "hello@agentplus.store", Mail, "mailto:hello@agentplus.store", "Send an email"],
+  ["Email", "hello@agentsplus.online", Mail, "mailto:hello@agentsplus.online", "Send an email"],
   ["Phone", "+254 729 053520", Phone, "tel:+254729053520", "Call the team"],
   ["Office", "Nairobi, Kenya", MapPin, "https://maps.google.com/?q=Nairobi%2C%20Kenya", "Get directions"],
 ];

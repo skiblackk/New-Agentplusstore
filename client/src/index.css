@@ -428,3 +428,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* Command Center accessibility and small-screen navigation */
 .admin-sidebar > button:focus-visible { outline-color: #ff7800; outline-offset: -3px; }
 @media (max-width: 620px) { .admin-sidebar { overflow-x: auto; } .admin-sidebar > button { white-space: nowrap; } }
+
+/* 21st.dev-inspired interaction layer: editorial spotlight, not a template effect. */
+.spotlight-card { isolation: isolate; }
+.spotlight-card::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; background: radial-gradient(280px circle at 50% 0%, rgba(255,120,0,.14), transparent 68%); transition: opacity .24s ease, transform .24s var(--ease-out); transform: translateY(8px); }
+.spotlight-card:hover::before, .spotlight-card:focus-within::before { opacity: 1; transform: translateY(0); }
+.button-shimmer { position: relative; overflow: hidden; isolation: isolate; }
+.button-shimmer::after { content: ""; position: absolute; inset: 0 auto 0 -65%; width: 42%; transform: skewX(-18deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,.42), transparent); pointer-events: none; }
+.button-shimmer:hover::after, .button-shimmer:focus-visible::after { animation: buttonShimmer .7s var(--ease-out); }
+@keyframes buttonShimmer { to { transform: translateX(420%) skewX(-18deg); } }
+@media (prefers-reduced-motion: reduce) { .button-shimmer:hover::after, .button-shimmer:focus-visible::after { animation: none; } }

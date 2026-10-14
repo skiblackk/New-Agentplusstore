@@ -7,7 +7,7 @@ describe("browser push configuration", () => {
     const privateKey = process.env.VAPID_PRIVATE_KEY || "";
     expect(publicKey).toMatch(/^[A-Za-z0-9_-]{40,}$/);
     expect(privateKey).toMatch(/^[A-Za-z0-9_-]{30,}$/);
-    expect(() => webpush.setVapidDetails("mailto:hello@agentplus.store", publicKey, privateKey)).not.toThrow();
+    expect(() => webpush.setVapidDetails("mailto:hello@agentsplus.online", publicKey, privateKey)).not.toThrow();
     const response = await fetch(`${process.env.TEST_BASE_URL || "http://localhost:3000"}/api/push/public-key`);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ publicKey });

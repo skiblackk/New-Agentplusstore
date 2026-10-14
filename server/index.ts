@@ -24,7 +24,7 @@ const GROQ_KEY = process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KE
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const pushEnabled = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
-if (pushEnabled) webpush.setVapidDetails("mailto:hello@agentplus.store", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+if (pushEnabled) webpush.setVapidDetails("mailto:hello@agentsplus.online", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 const supabaseEnabled = Boolean(SUPABASE_URL && SUPABASE_KEY);
 const redisEnabled = Boolean(REDIS_URL && REDIS_TOKEN);
 const backendMode = supabaseEnabled ? "supabase" : redisEnabled ? "redis" : "memory-fallback";
