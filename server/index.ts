@@ -394,4 +394,8 @@ async function startServer() {
   }
   httpServer.listen(port, "0.0.0.0", () => { console.log(`AgentPlus server running on http://localhost:${port}/ (backend=${backendMode}, groq=${Boolean(GROQ_KEY)})`); console.log(`➜ Local:   http://localhost:${port}/`); console.log(`➜ Network: http://0.0.0.0:${port}/`); });
 }
-startServer().catch((error) => { console.error(error); process.exit(1); });
+export default app;
+
+if (!process.env.VERCEL) {
+  startServer().catch((error) => { console.error(error); process.exit(1); });
+}
