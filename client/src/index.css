@@ -71,6 +71,7 @@
 
 * { box-sizing: border-box; }
 button { font: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 3px solid rgba(237,111,0,.42); outline-offset: 3px; }
 .site-shell { overflow: hidden; background: #f1f0eb; color: #141412; }
 .announcement-bar { background: #ff7800; color: #161711; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
 .announcement-inner { height: 35px; display: flex; align-items: center; justify-content: center; gap: 11px; }
@@ -423,3 +424,7 @@ button { font: inherit; }
 
 .command-center-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:16px; }.command-card { padding:15px; border:1px solid #e3e0d7; border-radius:10px; background:#fff; }.metric-row { display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid #efede7; color:#626057; font-size:11px; }.metric-row:last-child { border-bottom:0; }.metric-row strong { color:#24231f; font-weight:700; }.admin-empty-inline,.admin-loading { color:#8d8a81; font-size:11px; padding:14px 0; }.analytics-snapshot .analytics-summary { grid-template-columns:repeat(4,1fr); }
 @media (max-width: 900px) { .command-center-grid { grid-template-columns:1fr; }.analytics-snapshot .analytics-summary { grid-template-columns:repeat(2,1fr); } }
+
+/* Command Center accessibility and small-screen navigation */
+.admin-sidebar > button:focus-visible { outline-color: #ff7800; outline-offset: -3px; }
+@media (max-width: 620px) { .admin-sidebar { overflow-x: auto; } .admin-sidebar > button { white-space: nowrap; } }
