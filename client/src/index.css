@@ -253,7 +253,7 @@ button { font: inherit; }
 @media (max-width: 620px) { .chat-launcher { right: 15px; bottom: 15px; }.chat-panel { right: 15px; bottom: 70px; }.admin-shell:not(.admin-login) { display: block; }.admin-sidebar { min-height: 0; width: auto; padding: 16px; }.admin-brand { padding: 0 4px 16px; }.admin-sidebar .admin-side-kicker, .admin-sidebar-bottom { display: none; }.admin-sidebar > button { display: inline-flex; width: auto; margin-right: 4px; padding: 8px; }.admin-sidebar > button span, .admin-sidebar > button svg:last-child { display: none; }.admin-main { padding: 28px 15px 45px; }.admin-topbar h1 { font-size: 36px; }.admin-stats { gap: 8px; }.admin-stats article { padding: 13px; }.admin-stats strong { font-size: 29px; }.admin-panel { padding: 16px; }.order-row { align-items: start; flex-direction: column; }.order-actions { width: 100%; }.order-actions button:first-child { flex: 1; justify-content: center; }.admin-login-card { padding: 30px 24px; } }
 
 /* Brand lockup: the uploaded AgentPlus logo is the source of truth. */
-.brand-mark { width: 31px; height: 31px; flex: 0 0 auto; display: block; border-radius: 50%; background: #111 url('/manus-storage/agentplus-logo_0ed87465.png') center / cover no-repeat; box-shadow: 0 0 0 1px rgba(255,120,0,.35), 0 4px 12px rgba(255,120,0,.18); }
+.brand-mark { width: 31px; height: 31px; flex: 0 0 auto; display: block; border-radius: 50%; background: #111 url('/agentplus-logo.jpeg') center / cover no-repeat; box-shadow: 0 0 0 1px rgba(255,120,0,.35), 0 4px 12px rgba(255,120,0,.18); }
 .brand-mark span { display: none !important; }
 .brand-plus { color: #ff7800 !important; }
 .announcement-bar { background: #ff7800; color: #1b1208; }
