@@ -78,13 +78,7 @@ const faqs = [
 function PaymentDialog({ packageName, config, close }: { packageName: string; config: PaymentConfig; close: () => void }) { const [email, setEmail] = useState(""); const [name, setName] = useState(""); const [hash, setHash] = useState(""); const [sending, setSending] = useState(false); const [sent, setSent] = useState(false); const price = packageName === "Starter" ? "$500" : "$1,500"; const submit = async (event: FormEvent) => { event.preventDefault(); setSending(true); const response = await fetch("/api/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName: name, customerEmail: email, requirements: `Payment pending for ${packageName}. Binance transaction hash: ${hash}`, suggestedPackage: packageName, suggestedPrice: price, packageReasoning: "Customer submitted a manual Binance USDT payment for admin verification.", source: "binance-payment", paymentStatus: "pending", transactionHash: hash }) }); setSending(false); if (response.ok) setSent(true); }; return <div className="payment-backdrop" role="dialog" aria-modal="true" aria-label="Binance USDT payment"><div className="payment-dialog"><button className="payment-close" onClick={close} aria-label="Close payment dialog"><X size={18} /></button><span className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Manual payment</span><h2>Pay for {packageName} with USDT.</h2><p>Send <strong>{price}</strong> in USDT, then submit the transaction hash below. Your payment stays pending until AgentPlus verifies it.</p><div className="payment-details"><span>Binance Pay ID</span><strong>{config.binanceId || "Not configured"}</strong><span>Wallet · {config.network}</span><strong className="wallet-address">{config.walletAddress || "Not configured"}</strong></div><p className="payment-instructions">{config.instructions}</p>{sent ? <div className="payment-success">Payment details submitted. AgentPlus will verify the transaction and contact you.</div> : <form onSubmit={submit} className="payment-form"><input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Your name" /><input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Work email" /><input required value={hash} onChange={(event) => setHash(event.target.value)} placeholder="Binance transaction hash" /><button className="button button-dark" disabled={sending}>{sending ? "Submitting…" : "Submit for verification"}</button></form>}</div></div>; }
 
 function BrandMark() {
-  return (
-    <span className="brand-mark" aria-hidden="true">
-      <span />
-      <span />
-      <span />
-    </span>
-  );
+  return <img className="brand-mark" src="/agentplus-logo.jpeg" alt="" aria-hidden="true" />;
 }
 
 function scrollToId(id: string) {
@@ -227,7 +221,7 @@ export default function Home() {
             <div className="visual-orbit orbit-one" />
             <div className="visual-orbit orbit-two" />
             <div className="hero-image-wrap">
-              <img src="/manus-storage/agentplus-hero_de6435f9.png" alt="A luminous orbit around a dark glass sphere" className="hero-image" />
+              <img src="/agentplus-logo.jpeg" alt="AgentPlus — AI agents, automation, growth" className="hero-image" />
               <div className="visual-label label-top"><span className="status-dot" /> agent online</div>
               <div className="visual-label label-bottom"><span className="label-number">01</span><span>Scout / active</span><ArrowUpRight size={14} /></div>
             </div>

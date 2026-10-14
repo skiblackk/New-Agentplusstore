@@ -2,7 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import path from "path";
 import { fileURLToPath } from "url";
-import { createHash, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes } from "crypto";
 import type { Response } from "express";
 import webpush from "web-push";
 
@@ -225,7 +225,19 @@ async function saveAtlas(messages: ChatMessage[]) {
   if (redisEnabled) await redis("SET", "ap:atlas:memory", JSON.stringify(memory.atlas));
 }
 async function clearAtlas() { memory.atlas = []; if (supabaseEnabled) await supabaseRequest("agentplus_memory?id=eq.1", { method: "DELETE" }); else if (redisEnabled) await redis("DEL", "ap:atlas:memory"); }
-
+function issueSessionToken() {
+  const payload = `${Date.now()}.${randomBytes(32).toString("hex")}`;
+  const signature = createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("hex");
+  return `${payload}.${signature}`;
+}
+function validSignedSession(token: string) {
+  if (!ADMIN_PASSWORD) return false;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const payload = `${parts[0]}.${parts[1]}`;
+  const expected = createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("hex");
+  return parts[2] === expected && Number(parts[0]) > Date.now() - 30 * 24 * 60 * 60 * 1000;
+}
 async function createSession(token: string) {
   memory.sessions.add(token);
   if (supabaseEnabled) {
@@ -242,6 +254,7 @@ async function createSession(token: string) {
 }
 async function validSession(token: string) {
   if (!token) return false;
+  if (validSignedSession(token)) return true;
   if (memory.sessions.has(token)) return true;
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ token: string }>>(`agentplus_sessions?token=eq.${encodeURIComponent(token)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=token&limit=1`); return rows.length > 0; } catch { return false; } }
   if (redisEnabled) { try { return (await redis("GET", `ap:session:${token}`)) === "1"; } catch { return false; } }
@@ -269,7 +282,19 @@ async function callGroq(messages: ChatMessage[], mode: "client" | "admin", dashb
 }
 
 app.get("/api/status", (_req, res) => res.json({ ok: true, backend: backendMode, supabase: supabaseEnabled, redis: redisEnabled, groq: Boolean(GROQ_KEY), adminPassword: Boolean(ADMIN_PASSWORD), browserPush: pushEnabled }));
-app.post("/api/admin-auth", async (req, res) => { const password = typeof req.body?.password === "string" ? req.body.password : ""; if (!ADMIN_PASSWORD) return res.status(503).json({ ok: false, error: "ADMIN_PASSWORD is not configured" }); if (password !== ADMIN_PASSWORD) return res.json({ ok: false }); const token = randomBytes(32).toString("hex"); await createSession(token); res.json({ ok: true, token }); });
+app.get("/api/maps-script", async (req, res) => {
+  const key = process.env.VITE_FRONTEND_FORGE_API_KEY || "";
+  if (!key) return res.status(503).type("text/plain").send("Maps is not configured.");
+  const libraries = typeof req.query.libraries === "string" ? req.query.libraries : "marker,places,geocoding,geometry";
+  const version = typeof req.query.v === "string" ? req.query.v : "weekly";
+  const forgeOrigin = process.env.FORGE_MAP_ORIGIN || "https://3000-i9v1qpo2vbn113o4ggl1v-d5218780.us3.manus.computer";
+  try {
+    const upstream = await fetch(`https://forge.manus.ai/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(key)}&v=${encodeURIComponent(version)}&libraries=${encodeURIComponent(libraries)}`, { headers: { Origin: forgeOrigin, Referer: `${forgeOrigin}/` }, signal: AbortSignal.timeout(20_000) });
+    const body = await upstream.text();
+    res.status(upstream.status).setHeader("Content-Type", upstream.headers.get("content-type") || "application/javascript; charset=utf-8").setHeader("Cache-Control", "public, max-age=3600").send(body);
+  } catch (error) { res.status(502).type("text/plain").send(`Maps proxy unavailable: ${String(error)}`); }
+});
+app.post("/api/admin-auth", async (req, res) => { const password = typeof req.body?.password === "string" ? req.body.password : ""; if (!ADMIN_PASSWORD) return res.status(503).json({ ok: false, error: "ADMIN_PASSWORD is not configured" }); if (password !== ADMIN_PASSWORD) return res.json({ ok: false }); const token = issueSessionToken(); await createSession(token); res.json({ ok: true, token }); });
 app.delete("/api/admin-auth", async (req, res) => { const token = typeof req.body?.token === "string" ? req.body.token : ""; if (token) await deleteSession(token); res.json({ ok: true }); });
 
 app.get("/api/articles", async (_req, res) => res.json({ articles: await getArticles() }));
