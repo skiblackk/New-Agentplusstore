@@ -87,17 +87,24 @@ declare global {
 }
 
 function loadMapScript() {
-  return new Promise(resolve => {
+  return new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = "/api/maps-script?v=weekly&libraries=marker,places,geocoding,geometry";
+    const libraries = "marker,places,geocoding,geometry";
+    const previewBase = (import.meta.env.VITE_FRONTEND_FORGE_API_URL || "https://forge.manus.ai").replace(/\/+$/, "");
+    const previewKey = import.meta.env.VITE_FRONTEND_FORGE_API_KEY || "";
+    script.src = import.meta.env.DEV
+      ? `${previewBase}/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(previewKey)}&v=weekly&libraries=${libraries}`
+      : `/api/maps-script?v=weekly&libraries=${libraries}`;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
-      resolve(null);
+      if (window.google?.maps) resolve();
+      else reject(new Error("Google Maps loaded without its API namespace"));
       script.remove(); // Clean up immediately
     };
     script.onerror = () => {
-      console.error("Failed to load Google Maps script");
+      script.remove();
+      reject(new Error("Failed to load Google Maps script"));
     };
     document.head.appendChild(script);
   });
@@ -120,7 +127,12 @@ export function MapView({
   const map = useRef<google.maps.Map | null>(null);
 
   const init = usePersistFn(async () => {
-    await loadMapScript();
+    try {
+      if (!window.google?.maps) await loadMapScript();
+    } catch (error) {
+      console.error("Google Maps initialization failed", error);
+      return;
+    }
     if (!mapContainer.current) {
       console.error("Map container not found");
       return;
