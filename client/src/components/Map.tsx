@@ -150,6 +150,6 @@ export function MapView({
   }, [init]);
 
   return (
-    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} />
+    <div ref={mapContainer} className={cn("w-full h-[500px]", className)} data-map-provider="google" aria-label="Google Maps local market map" />
   );
 }
