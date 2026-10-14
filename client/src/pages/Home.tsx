@@ -221,7 +221,7 @@ export default function Home() {
             <div className="visual-orbit orbit-one" />
             <div className="visual-orbit orbit-two" />
             <div className="hero-image-wrap">
-              <img src="/agentplus-logo.jpeg" alt="AgentPlus — AI agents, automation, growth" className="hero-image" />
+              <img src="/agentplus-logo.jpeg" alt="AgentPlus — AI agents, automation, growth" className="hero-image" width="1600" height="1600" fetchPriority="high" decoding="async" />
               <div className="visual-label label-top"><span className="status-dot" /> agent online</div>
               <div className="visual-label label-bottom"><span className="label-number">01</span><span>Scout / active</span><ArrowUpRight size={14} /></div>
             </div>
