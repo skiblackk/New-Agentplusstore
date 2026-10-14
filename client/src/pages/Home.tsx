@@ -93,6 +93,7 @@ function scrollToId(id: string) {
 
 const WHATSAPP_NUMBER = "254729053520";
 function whatsappUrl(service: string) { return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hi AgentPlus, I’m interested in the ${service} package. I’d like to learn how it could help my business.`)}`; }
+function trackAnalytics(eventName: string, service?: string, metadata?: Record<string, unknown>) { const params = new URLSearchParams(window.location.search); void fetch("/api/analytics/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName, service, page: window.location.pathname, sessionId: localStorage.getItem("agentplus_visitor_id") || undefined, referrer: document.referrer, utmSource: params.get("utm_source") || undefined, utmMedium: params.get("utm_medium") || undefined, utmCampaign: params.get("utm_campaign") || undefined, utmContent: params.get("utm_content") || undefined, utmTerm: params.get("utm_term") || undefined, deviceType: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop", browser: navigator.userAgent, metadata }) }).catch(() => undefined); }
 type PaymentConfig = { enabled: boolean; binanceId: string; walletAddress: string; network: string; instructions: string };
 
 export default function Home() {
@@ -125,7 +126,9 @@ export default function Home() {
   useEffect(() => {
     const storageKey = "agentplus_visitor_id";
     const visitorId = localStorage.getItem(storageKey) || `vis_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const params = new URLSearchParams(window.location.search);
     localStorage.setItem(storageKey, visitorId);
+    trackAnalytics("page_view");
     void fetch("/api/track", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -139,6 +142,12 @@ export default function Home() {
         servicesViewed: [],
         duration: 0,
         referrer: document.referrer,
+        source: params.get("utm_source") || undefined,
+        campaign: params.get("utm_campaign") || undefined,
+        utmSource: params.get("utm_source") || undefined,
+        utmMedium: params.get("utm_medium") || undefined,
+        utmCampaign: params.get("utm_campaign") || undefined,
+        landingPage: window.location.pathname,
       } }),
     }).catch(() => undefined);
   }, []);
@@ -149,6 +158,7 @@ export default function Home() {
   };
 
   const openWhatsApp = (service = "AgentPlus") => {
+    trackAnalytics("service_demo_clicked", service);
     const visitorId = localStorage.getItem("agentplus_visitor_id") || undefined;
     const params = new URLSearchParams(window.location.search);
     void fetch("/api/whatsapp-click", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, visitorId, page: window.location.pathname, device: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop", referrer: document.referrer, campaign: params.get("utm_campaign") || "Direct", source: params.get("utm_source") || document.referrer || "Direct", medium: params.get("utm_medium") || "none", content: params.get("utm_content") || undefined }) }).catch(() => undefined);
@@ -157,7 +167,7 @@ export default function Home() {
   };
   const showDemo = () => openWhatsApp("a tailored AgentPlus rollout");
   const openPayment = (packageName: string) => setPaymentPackage(packageName);
-  const openOrder = (packageName: "Starter Agent" | "Basic Agent" | "Premium Agent" | "Custom AI Agent") => setOrderPackage(packageName);
+  const openOrder = (packageName: "Starter Agent" | "Basic Agent" | "Premium Agent" | "Custom AI Agent") => { trackAnalytics("order_started", packageName); setOrderPackage(packageName); };
 
   const startFree = () => {
     goTo("plans");

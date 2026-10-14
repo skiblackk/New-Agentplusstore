@@ -112,3 +112,12 @@ create table if not exists public.agentplus_research_reports (
 );
 create index if not exists agentplus_research_reports_created_at_idx on public.agentplus_research_reports (created_at desc);
 alter table public.agentplus_research_reports enable row level security;
+
+
+create table if not exists public.agentplus_analytics_events (
+  id text primary key,
+  payload jsonb not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists agentplus_analytics_events_created_at_idx on public.agentplus_analytics_events (created_at desc);
+alter table public.agentplus_analytics_events enable row level security;
