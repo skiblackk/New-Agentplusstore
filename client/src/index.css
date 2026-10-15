@@ -438,3 +438,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .button-shimmer:hover::after, .button-shimmer:focus-visible::after { animation: buttonShimmer .7s var(--ease-out); }
 @keyframes buttonShimmer { to { transform: translateX(420%) skewX(-18deg); } }
 @media (prefers-reduced-motion: reduce) { .button-shimmer:hover::after, .button-shimmer:focus-visible::after { animation: none; } }
+
+.founder-section { padding: 110px 0; background: #171715; color: #f4f3ef; }
+.founder-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; align-items: end; }
+.founder-section .mission-number { color: #ff7800; }
+.founder-section h2 { margin: 26px 0 8px; font: 500 clamp(52px, 6vw, 82px)/.88 "Space Grotesk", sans-serif; letter-spacing: -.075em; }
+.founder-section h2 em { color: #ff7800; font-style: normal; }
+.founder-role { margin: 0; color: #aaa8a0; font-size: 14px; }
+.founder-copy { max-width: 500px; padding-bottom: 5px; }
+.founder-specialties { margin-bottom: 25px; color: #ffb36f; font-size: 11px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; }
+.founder-specialties span { padding: 0 7px; color: #706f68; }
+.founder-copy p { max-width: 480px; margin: 0 0 18px; color: #c2c0b9; font-size: 15px; line-height: 1.7; }
+@media (max-width: 800px) { .founder-grid { grid-template-columns: 1fr; gap: 40px; } }
+@media (max-width: 540px) { .founder-section { padding: 75px 0; } .founder-section h2 { font-size: 58px; } .founder-specialties { line-height: 1.8; } }
