@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+Disallow: /agentplus.admin
+Sitemap: https://agentsplus.online/sitemap.xml

@@ -1,0 +1,10 @@
+{
+  "name": "AgentPlus",
+  "short_name": "AgentPlus",
+  "description": "Practical AI agents for customer care, research, and growth.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#171715",
+  "theme_color": "#ff7800",
+  "icons": [{"src":"/apple-touch-icon.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]
+}
