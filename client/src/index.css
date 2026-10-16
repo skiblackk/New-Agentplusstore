@@ -456,3 +456,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .research-demo-label { gap: 9px; }
 .research-demo-label strong { color: #432616; }
 @media (max-width: 540px) { .maxwell-logo { width: 30px; height: 30px; } .research-demo-label span { display: none; } }
+
+.chat-avatar { overflow: hidden; padding: 0; border: 1px solid rgba(255, 170, 95, .72); background: #151514; box-shadow: 0 3px 12px rgba(0, 0, 0, .24); }
+.chat-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; }
