@@ -367,10 +367,43 @@ app.get("/api/atlas-memory", requireAuth, async (_req, res) => res.json({ messag
 app.post("/api/atlas-memory", requireAuth, async (req, res) => { await saveAtlas(Array.isArray(req.body?.messages) ? req.body.messages : []); res.json({ ok: true }); });
 app.delete("/api/atlas-memory", requireAuth, async (_req, res) => { await clearAtlas(); res.json({ ok: true }); });
 app.post("/api/chat", async (req, res) => { try { const { messages, mode = "client", dashboardContext, searchResults, researchMode = "quick" } = req.body as { messages?: ChatMessage[]; mode?: "client" | "admin"; dashboardContext?: unknown; searchResults?: unknown; researchMode?: "quick" | "research" | "strategy" }; if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ error: "No messages" }); if (mode === "client" && researchMode !== "quick") { const query = messages[messages.length - 1]?.content || ""; const sources = await searchWeb(query); const strategyPrompt = researchMode === "strategy" ? `You are Maxwell, AgentPlus's research and strategy analyst. Answer the visitor's actual question, then turn the external findings into a practical strategy. Separate: 1) what the sources say, 2) what it means for this business, 3) a prioritized strategy with 3-5 actions, 4) metrics to track, 5) risks and assumptions, and 6) the next 7-day step. Name the publisher or company for every material finding using a clear “Source: [name]” label. For local research, name each restaurant, company, or place exactly as returned by Google Maps before describing its rating, address, category, or observed signal. Cite source titles and URLs naturally. Do not invent facts, do not claim certainty when the sources are weak, and do not pressure the visitor to buy. Only mention AgentPlus packages if the visitor asks for implementation, pricing, or help executing the strategy.` : `You are Maxwell, AgentPlus's research and strategy analyst. Answer the visitor's question using the live research results below. Distinguish sourced facts from your analysis, cite sources naturally, call out gaps or conflicting signals, and ask one useful follow-up if the question is too broad. Do not use canned sales lines or push a package unless the visitor asks about implementation or pricing.`; const content = await callGroq(messages, "client", undefined, { sources }, `${strategyPrompt}\n\nLIVE EXTERNAL RESEARCH RESULTS:\n${JSON.stringify(sources, null, 2)}`); return res.json({ content, sources, researchUsed: true, researchMode }); } const liveContext = mode === "admin" ? await analyticsSnapshot() : dashboardContext; res.json({ content: await callGroq(messages, mode, liveContext, searchResults), researchUsed: false, researchMode }); } catch (error) { res.status(500).json({ error: String(error) }); } });
+function decodeHtml(value: string) {
+  return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+
+function decodeBingUrl(value: string) {
+  const url = decodeHtml(value);
+  try {
+    const parsed = new URL(url);
+    const encoded = parsed.searchParams.get("u");
+    if (encoded?.startsWith("a1")) return Buffer.from(encoded.slice(2), "base64url").toString("utf8");
+  } catch { /* keep the original URL when Bing returns a direct link */ }
+  return url;
+}
+
 async function searchWeb(query: string) {
-  const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, { headers: { "User-Agent": "Mozilla/5.0 (compatible; AgentPlus/1.0)" }, signal: AbortSignal.timeout(8000) });
-  const html = await response.text();
-  return Array.from(html.matchAll(/<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)).slice(0, 6).map((match) => ({ url: match[1], title: match[2].replace(/<[^>]+>/g, "").trim() }));
+  const results: Array<{ url: string; title: string; snippet?: string }> = [];
+  const stopWords = new Set("what are the main for in and a an to of how can is me show build give assess identify tell please around about with from into does do should would could".split(" "));
+  const concise = query.replace(/[^A-Za-z0-9\s-]/g, " ").split(/\s+/).filter(Boolean).filter((word) => !stopWords.has(word.toLowerCase())).slice(0, 10).join(" ");
+  const queries = Array.from(new Set([query.trim(), concise].filter(Boolean)));
+  for (const searchQuery of queries) {
+    const response = await fetch(`https://www.bing.com/search?q=${encodeURIComponent(searchQuery)}`, { headers: { "User-Agent": "Mozilla/5.0 (compatible; AgentPlus/1.0)" }, signal: AbortSignal.timeout(10_000) });
+    if (!response.ok) continue;
+    const html = await response.text();
+    for (const item of Array.from(html.matchAll(/<li class="b_algo"[\s\S]*?<\/li>/g))) {
+      const block = item[0];
+      const match = block.match(/<h2[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/);
+      if (!match) continue;
+      const url = decodeBingUrl(match[1]);
+      const title = decodeHtml(match[2].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim());
+      const snippetMatch = block.match(/<div class="b_caption"[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/);
+      const snippet = snippetMatch ? decodeHtml(snippetMatch[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim()) : undefined;
+      if (/^https?:\/\//.test(url) && title && !results.some((result) => result.url === url)) results.push({ url, title, ...(snippet ? { snippet } : {}) });
+      if (results.length >= 6) break;
+    }
+    if (results.length >= 6) break;
+  }
+  return results;
 }
 
 app.post("/api/embed/:publicKey/chat", async (req, res) => {
