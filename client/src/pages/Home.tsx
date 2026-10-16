@@ -196,7 +196,7 @@ export default function Home() {
 
       <section className="hero-section" id="top">
         <video className="hero-video" autoPlay muted loop playsInline preload="metadata" aria-hidden="true">
-          <source src="/manus-storage/agentplus-hero_c8d4248c.mp4" type="video/mp4" />
+          <source src="/agentplus-hero.mp4" type="video/mp4" />
         </video>
         <div className="hero-video-overlay" aria-hidden="true" />
         <div className="hero-grid container">
