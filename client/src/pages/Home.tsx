@@ -18,10 +18,8 @@ import {
   Plus,
   Search,
   ShieldCheck,
-  Sparkles,
   Workflow,
   X,
-  Zap,
 } from "lucide-react";
 
 const agents = [
@@ -197,7 +195,7 @@ export default function Home() {
       </header>
 
       <section className="hero-section" id="top">
-        <video className="hero-video" autoPlay muted loop playsInline preload="metadata" poster="/agentplus-logo.jpeg" aria-hidden="true">
+        <video className="hero-video" autoPlay muted loop playsInline preload="metadata" aria-hidden="true">
           <source src="/manus-storage/agentplus-hero_c8d4248c.mp4" type="video/mp4" />
         </video>
         <div className="hero-video-overlay" aria-hidden="true" />
@@ -221,17 +219,6 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hero-visual">
-            <div className="visual-orbit orbit-one" />
-            <div className="visual-orbit orbit-two" />
-            <div className="hero-image-wrap">
-              <img src="/agentplus-logo.jpeg" alt="AgentPlus — AI agents, automation, growth" className="hero-image" width="1600" height="1600" fetchPriority="high" decoding="async" />
-              <div className="visual-label label-top"><span className="status-dot" /> agent online</div>
-              <div className="visual-label label-bottom"><span className="label-number">01</span><span>Scout / active</span><ArrowUpRight size={14} /></div>
-            </div>
-            <div className="floating-card floating-card-top"><span className="mini-icon mini-icon-lilac"><Sparkles size={15} /></span><span><b>One clear next step.</b><small>Scout found 12 useful signals</small></span></div>
-            <div className="floating-card floating-card-bottom"><span className="mini-icon mini-icon-lime"><Zap size={15} /></span><span><b>Work, in motion.</b><small>3 tasks routed while you slept</small></span></div>
-          </div>
         </div>
         <div className="hero-ticker"><div className="container ticker-inner"><span>BUILT FOR THE MESSY MIDDLE</span><span className="ticker-line" /><span>BETTER QUESTIONS. FASTER FOLLOW-THROUGH.</span><ArrowDownRight size={17} /></div></div>
       </section>
