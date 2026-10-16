@@ -451,3 +451,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .founder-copy p { max-width: 480px; margin: 0 0 18px; color: #c2c0b9; font-size: 15px; line-height: 1.7; }
 @media (max-width: 800px) { .founder-grid { grid-template-columns: 1fr; gap: 40px; } }
 @media (max-width: 540px) { .founder-section { padding: 75px 0; } .founder-section h2 { font-size: 58px; } .founder-specialties { line-height: 1.8; } }
+
+.maxwell-logo { width: 34px; height: 34px; flex: 0 0 auto; border: 1px solid rgba(255, 150, 75, .65); border-radius: 7px; object-fit: cover; object-position: 24% center; box-shadow: 0 3px 12px rgba(0, 0, 0, .22); }
+.research-demo-label { gap: 9px; }
+.research-demo-label strong { color: #432616; }
+@media (max-width: 540px) { .maxwell-logo { width: 30px; height: 30px; } .research-demo-label span { display: none; } }
