@@ -197,6 +197,10 @@ export default function Home() {
       </header>
 
       <section className="hero-section" id="top">
+        <video className="hero-video" autoPlay muted loop playsInline preload="metadata" poster="/agentplus-logo.jpeg" aria-hidden="true">
+          <source src="/manus-storage/agentplus-hero_c8d4248c.mp4" type="video/mp4" />
+        </video>
+        <div className="hero-video-overlay" aria-hidden="true" />
         <div className="hero-grid container">
           <div className="hero-copy">
             <div className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> AI agents for the work that matters</div>
