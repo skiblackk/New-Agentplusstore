@@ -3,6 +3,8 @@ import type { FormEvent } from "react";
 import { toast } from "sonner";
 import Chatbot from "@/components/Chatbot";
 import DemoLab from "@/components/DemoLab";
+import LiquidSculptureHero from "@/components/LiquidSculptureHero";
+import GlassFolder from "@/components/GlassFolderCards";
 import OrderDialog from "@/components/OrderDialog";
 import {
   ArrowDownRight,
@@ -223,6 +225,32 @@ export default function Home() {
         <div className="hero-ticker"><div className="container ticker-inner"><span>BUILT FOR THE MESSY MIDDLE</span><span className="ticker-line" /><span>BETTER QUESTIONS. FASTER FOLLOW-THROUGH.</span><ArrowDownRight size={17} /></div></div>
       </section>
 
+      <section className="liquid-sculpture-band" aria-label="AgentPlus motion system">
+        <LiquidSculptureHero
+          showNav={false}
+          theme="dark"
+          loadFonts={false}
+          darkBackground="#191918"
+          background="#191918"
+          textColor="#f7f6f2"
+          accentColor="#ff7800"
+          src="https://cdn.21st.dev/assets/mirror/ae/ae8c3de9003460e59182e950ccd345f68f27f9d0e4808b64c92c962a4eca7120.webp"
+          darkSrc="https://cdn.21st.dev/assets/mirror/a1/a1fa387b6e417b26a25f317559c87cce4d241c1052c52a2b3bc2966b2aaf9b65.webp"
+          headline="Work that\nkeeps moving."
+          headlineAccent="keeps moving."
+          eyebrow="AGENTPLUS MOTION SYSTEM"
+          body="A living layer for the questions, handoffs, and decisions that keep your business moving forward."
+          primaryCta={{ label: "Meet the agents", href: "#agents" }}
+          secondaryCta={{ label: "See the plans", href: "#plans" }}
+          backdropText="SIGNAL"
+          imageAlt="Abstract liquid sculpture representing connected AgentPlus workflows"
+          height="clamp(590px, 66vw, 780px)"
+          sculptureScale={1.12}
+          mobileSculptureScale={1.02}
+          showCredit={false}
+        />
+      </section>
+
       <DemoLab />
 
       <section className="proof-strip">
@@ -237,6 +265,14 @@ export default function Home() {
           <div className="section-heading split-heading" data-reveal>
             <div><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> Not another AI tab</div><h2>Less prompting.<br /><em>More momentum.</em></h2></div>
             <div className="heading-aside"><p>Most AI tools give you a blank chat box. AgentPlus gives you a point of view, a playbook, and a place to start.</p><button className="text-button dark-button" onClick={() => goTo("agents")}>Meet the agent lineup <ArrowUpRight size={16} /></button></div>
+          </div>
+          <div className="folder-animation-showcase" data-reveal>
+            <div className="folder-showcase-heading"><div><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> A brief you can move through</div><h3>Open the layers<br /><em>behind the work.</em></h3></div><p>Glass Folder Cards turn the AgentPlus system into a tangible path: agents, workflows, and the signals that help teams act with more clarity.</p></div>
+            <div className="folder-showcase-grid">
+              <GlassFolder label="Agents" meta="Focused AI teammates" tone="light" art="glacier" width={260} action="none" files={[{ name: "Scout", meta: "Research agent", art: "glacier" }, { name: "Triage", meta: "Inbox agent" }]} />
+              <GlassFolder label="Workflows" meta="Repeatable systems" tone="light" art="dusk" width={260} action="none" files={[{ name: "Customer handoff", meta: "18 workflows live", art: "dusk" }, { name: "Lead routing", meta: "42% faster replies" }]} appearDelay={120} />
+              <GlassFolder label="Signals" meta="Useful context" tone="light" art="verdant" width={260} action="none" files={[{ name: "Clear brief", meta: "Better questions", art: "verdant" }, { name: "Next step", meta: "Fewer loose ends" }]} appearDelay={240} />
+            </div>
           </div>
           <div className="value-grid" data-reveal="stagger">
             <article className="value-card value-card-tall spotlight-card"><div className="card-number">01</div><div className="value-art art-command"><Command size={27} /><div className="command-lines"><span /><span /><span /></div></div><h3>Start with<br />a sharp brief.</h3><p>Skip the blank page. Every agent begins with a clear job and the context to do it well.</p><span className="card-arrow"><ArrowUpRight size={18} /></span></article>

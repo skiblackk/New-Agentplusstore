@@ -478,3 +478,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .hero-video { opacity: .66; filter: saturate(.86) contrast(1.04) brightness(.82); }
 .hero-video-overlay { background: linear-gradient(90deg, rgba(25,25,24,.82) 0%, rgba(25,25,24,.46) 44%, rgba(25,25,24,.18) 100%), linear-gradient(0deg, rgba(25,25,24,.38), transparent 55%, rgba(25,25,24,.18)); }
 @media (max-width: 720px) { .hero-video { opacity: .52; } .hero-video-overlay { background: linear-gradient(90deg, rgba(25,25,24,.76), rgba(25,25,24,.28)), linear-gradient(0deg, rgba(25,25,24,.48), transparent 58%); } }
+
+
+/* 21st.dev motion integrations: layout only; existing site palette remains authoritative. */
+.liquid-sculpture-band { background: #191918; overflow: hidden; }
+.folder-animation-showcase { margin: 86px 0 78px; padding: 46px 0 8px; border-top: 1px solid #d9d7cf; }
+.folder-showcase-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 48px; margin-bottom: 10px; }
+.folder-showcase-heading h3 { font-family: "Space Grotesk", sans-serif; font-size: clamp(34px, 4vw, 54px); line-height: .95; letter-spacing: -.07em; margin: 22px 0 0; }
+.folder-showcase-heading h3 em { color: #7d58ba; font-style: normal; }
+.folder-showcase-heading p { width: 310px; color: #76756d; font-size: 14px; line-height: 1.65; margin: 0 0 3px; }
+.folder-showcase-grid { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; overflow: visible; padding: 36px 30px 24px; margin: 0 -30px; }
+.folder-showcase-grid > * { flex: 0 1 260px; min-width: 220px; }
+@media (max-width: 900px) { .folder-showcase-heading { display: block; } .folder-showcase-heading p { width: auto; max-width: 420px; margin-top: 17px; } .folder-showcase-grid { justify-content: flex-start; overflow-x: auto; padding-left: 20px; padding-right: 20px; margin-inline: -20px; } .folder-showcase-grid > * { flex: 0 0 250px; } }
+@media (max-width: 600px) { .folder-animation-showcase { margin-top: 60px; padding-top: 32px; } .folder-showcase-grid { gap: 8px; } .folder-showcase-grid > * { flex-basis: 228px; transform: scale(.9); transform-origin: bottom left; margin-right: -22px; } }
