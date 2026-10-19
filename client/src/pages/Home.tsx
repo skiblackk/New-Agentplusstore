@@ -236,10 +236,10 @@ export default function Home() {
           accentColor="#ff7800"
           src="https://cdn.21st.dev/assets/mirror/ae/ae8c3de9003460e59182e950ccd345f68f27f9d0e4808b64c92c962a4eca7120.webp"
           darkSrc="https://cdn.21st.dev/assets/mirror/a1/a1fa387b6e417b26a25f317559c87cce4d241c1052c52a2b3bc2966b2aaf9b65.webp"
-          headline="Work that\nkeeps moving."
-          headlineAccent="keeps moving."
+          headline="AgentPlus agents\nkeep work moving."
+          headlineAccent="keep work moving."
           eyebrow="AGENTPLUS MOTION SYSTEM"
-          body="A living layer for the questions, handoffs, and decisions that keep your business moving forward."
+          body="AgentPlus builds practical AI agents and websites that help businesses attract customers, automate follow-through, and keep work moving."
           primaryCta={{ label: "Meet the agents", href: "#agents" }}
           secondaryCta={{ label: "See the plans", href: "#plans" }}
           backdropText="SIGNAL"
@@ -267,11 +267,11 @@ export default function Home() {
             <div className="heading-aside"><p>Most AI tools give you a blank chat box. AgentPlus gives you a point of view, a playbook, and a place to start.</p><button className="text-button dark-button" onClick={() => goTo("agents")}>Meet the agent lineup <ArrowUpRight size={16} /></button></div>
           </div>
           <div className="folder-animation-showcase" data-reveal>
-            <div className="folder-showcase-heading"><div><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> A brief you can move through</div><h3>Open the layers<br /><em>behind the work.</em></h3></div><p>Glass Folder Cards turn the AgentPlus system into a tangible path: agents, workflows, and the signals that help teams act with more clarity.</p></div>
+            <div className="folder-showcase-heading"><div><div className="eyebrow eyebrow-dark"><span className="eyebrow-dot" /> AgentPlus AI agents + websites</div><h3>Open the layers<br /><em>behind your growth.</em></h3></div><p>Explore how AgentPlus connects AI agents, conversion-ready websites, and smart workflows to help businesses attract customers and keep work moving.</p></div>
             <div className="folder-showcase-grid">
-              <GlassFolder label="Agents" meta="Focused AI teammates" tone="light" art="glacier" width={260} action="none" files={[{ name: "Scout", meta: "Research agent", art: "glacier" }, { name: "Triage", meta: "Inbox agent" }]} />
-              <GlassFolder label="Workflows" meta="Repeatable systems" tone="light" art="dusk" width={260} action="none" files={[{ name: "Customer handoff", meta: "18 workflows live", art: "dusk" }, { name: "Lead routing", meta: "42% faster replies" }]} appearDelay={120} />
-              <GlassFolder label="Signals" meta="Useful context" tone="light" art="verdant" width={260} action="none" files={[{ name: "Clear brief", meta: "Better questions", art: "verdant" }, { name: "Next step", meta: "Fewer loose ends" }]} appearDelay={240} />
+              <GlassFolder label="AI Agents" meta="Focused AI teammates" tone="light" art="glacier" width={260} action="none" files={[{ name: "Scout AI agent", meta: "Research + strategy", art: "glacier" }, { name: "Triage agent", meta: "Customer care" }]} />
+              <GlassFolder label="Websites" meta="Built to convert" tone="light" art="dusk" width={260} action="none" files={[{ name: "AgentPlus website", meta: "Clear positioning", art: "dusk" }, { name: "Lead-ready pages", meta: "More enquiries" }]} appearDelay={120} />
+              <GlassFolder label="Growth Signals" meta="Useful next steps" tone="light" art="verdant" width={260} action="none" files={[{ name: "Market signal", meta: "Better decisions", art: "verdant" }, { name: "Next growth move", meta: "Fewer loose ends" }]} appearDelay={240} />
             </div>
           </div>
           <div className="value-grid" data-reveal="stagger">
