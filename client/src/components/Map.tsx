@@ -94,7 +94,7 @@ function loadMapScript() {
     const previewKey = import.meta.env.VITE_FRONTEND_FORGE_API_KEY || "";
     script.src = import.meta.env.DEV
       ? `${previewBase}/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(previewKey)}&v=weekly&libraries=${libraries}`
-      : `/api/maps-script?v=weekly&libraries=${libraries}`;
+      : `/api/maps-script?v=weekly&libraries=${libraries}&revision=origin-fallback-1`;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
