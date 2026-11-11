@@ -343,24 +343,30 @@ app.get("/api/maps-script", async (req, res) => {
   const apiBase = (process.env.MANUS_API_URL || process.env.VITE_FRONTEND_FORGE_API_URL || "https://forge.manus.ai").replace(/\/+$/, "");
   const canonicalOrigin = "https://agentsplus.online";
   const configuredOrigin = process.env.FORGE_MAP_ORIGIN || canonicalOrigin;
-  const origins = Array.from(new Set([configuredOrigin, canonicalOrigin].map((value) => {
-    try { return new URL(value).origin; } catch { return canonicalOrigin; }
-  })));
-  const headerVariants: Array<Record<string, string>> = [];
+  const projectVercelHost = /^newagentplusstore(?:-[a-z0-9-]+)?-joshuas-projects-f862f152\.vercel\.app$/i;
+  const isAllowedOrigin = (origin: string) => {
+    try {
+      const parsed = new URL(origin);
+      return parsed.protocol === "https:" && !parsed.username && !parsed.password && parsed.origin === origin && (
+        parsed.hostname === "agentsplus.online" || parsed.hostname === "www.agentsplus.online" ||
+        parsed.origin === configuredOrigin || projectVercelHost.test(parsed.hostname)
+      );
+    } catch { return false; }
+  };
+  const requestedOrigin = typeof req.query.origin === "string" ? req.query.origin : "";
+  if (requestedOrigin && !isAllowedOrigin(requestedOrigin)) return res.status(403).type("text/plain").send("Maps origin is not allowed.");
+  const origins = Array.from(new Set([requestedOrigin, configuredOrigin, canonicalOrigin, "https://www.agentsplus.online"].filter((origin) => origin && isAllowedOrigin(origin))));
+  const headerVariants: Array<{ origin: string; headers: Record<string, string> }> = [];
   for (const origin of origins) {
-    headerVariants.push(
-      { Origin: origin, Referer: `${origin}/` },
-      { Origin: origin },
-      { Referer: `${origin}/` },
-      {},
-    );
+    headerVariants.push({ origin, headers: { Origin: origin, Referer: `${origin}/` } });
+    headerVariants.push({ origin, headers: { Origin: origin } });
   }
   try {
     let lastStatus = 502;
     let lastBody = "Maps proxy rejected all configured project origins.";
     let lastContentType = "application/json; charset=utf-8";
-    for (const headers of headerVariants) {
-      const upstream = await fetch(`${apiBase}/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(key)}&v=${encodeURIComponent(version)}&libraries=${encodeURIComponent(libraries)}`, { headers, signal: AbortSignal.timeout(20_000) });
+    for (const candidate of headerVariants) {
+      const upstream = await fetch(`${apiBase}/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(key)}&v=${encodeURIComponent(version)}&libraries=${encodeURIComponent(libraries)}`, { headers: candidate.headers, signal: AbortSignal.timeout(20_000) });
       const body = await upstream.text();
       if (upstream.status === 401 && /project origin not matched/i.test(body)) {
         lastStatus = upstream.status;
