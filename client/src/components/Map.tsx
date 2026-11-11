@@ -87,27 +87,44 @@ declare global {
 }
 
 function loadMapScript() {
-  return new Promise<void>((resolve, reject) => {
+  const libraries = "marker,places,geocoding,geometry";
+  const previewBase = (import.meta.env.VITE_FRONTEND_FORGE_API_URL || "https://forge.manus.ai").replace(/\/+$/, "");
+  const previewKey = import.meta.env.VITE_FRONTEND_FORGE_API_KEY || "";
+  const directUrl = `${previewBase}/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(previewKey)}&v=weekly&libraries=${libraries}`;
+  const proxyUrl = `/api/maps-script?v=weekly&libraries=${libraries}&origin=${encodeURIComponent(window.location.origin)}&revision=origin-aware-2`;
+  const sources = import.meta.env.DEV ? (previewKey ? [directUrl] : []) : [...(previewKey ? [directUrl] : []), proxyUrl];
+
+  const attempt = (index: number): Promise<void> => new Promise((resolve, reject) => {
+    const url = sources[index];
+    if (!url) {
+      reject(new Error("Google Maps is not configured for this site."));
+      return;
+    }
     const script = document.createElement("script");
-    const libraries = "marker,places,geocoding,geometry";
-    const previewBase = (import.meta.env.VITE_FRONTEND_FORGE_API_URL || "https://forge.manus.ai").replace(/\/+$/, "");
-    const previewKey = import.meta.env.VITE_FRONTEND_FORGE_API_KEY || "";
-    script.src = import.meta.env.DEV
-      ? `${previewBase}/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(previewKey)}&v=weekly&libraries=${libraries}`
-      : `/api/maps-script?v=weekly&libraries=${libraries}&origin=${encodeURIComponent(window.location.origin)}&revision=origin-aware-2`;
+    const fail = () => {
+      script.remove();
+      if (index + 1 < sources.length) {
+        attempt(index + 1).then(resolve, reject);
+      } else {
+        reject(new Error("Failed to load Google Maps from the configured Maps proxy."));
+      }
+    };
+    script.src = url;
     script.async = true;
     script.crossOrigin = "anonymous";
     script.onload = () => {
-      if (window.google?.maps) resolve();
-      else reject(new Error("Google Maps loaded without its API namespace"));
-      script.remove(); // Clean up immediately
+      if (window.google?.maps) {
+        script.remove();
+        resolve();
+      } else {
+        fail();
+      }
     };
-    script.onerror = () => {
-      script.remove();
-      reject(new Error("Failed to load Google Maps script"));
-    };
+    script.onerror = fail;
     document.head.appendChild(script);
   });
+
+  return attempt(0);
 }
 
 interface MapViewProps {
