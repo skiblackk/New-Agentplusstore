@@ -345,6 +345,7 @@ app.get("/api/maps-script", async (req, res) => {
   const authorizedProjectOrigins = [
     canonicalOrigin,
     "https://www.agentsplus.online",
+    "https://3000-i8m6n5rg589ic7zhtlumy-ca95f4b9.us5.manus.computer",
     "https://newagentplusstore-joshuas-projects-f862f152.vercel.app",
     "https://newagentplusstore-git-main-joshuas-projects-f862f152.vercel.app",
   ];
