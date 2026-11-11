@@ -340,11 +340,19 @@ app.get("/api/maps-script", async (req, res) => {
   if (!key) return res.status(503).type("text/plain").send("Maps is not configured.");
   const libraries = typeof req.query.libraries === "string" ? req.query.libraries : "marker,places,geocoding,geometry";
   const version = typeof req.query.v === "string" ? req.query.v : "weekly";
-  const forgeOrigin = process.env.FORGE_MAP_ORIGIN || "https://3000-i9v1qpo2vbn113o4ggl1v-d5218780.us3.manus.computer";
+  const canonicalOrigin = "https://agentsplus.online";
+  const configuredOrigin = process.env.FORGE_MAP_ORIGIN || canonicalOrigin;
+  const origins = Array.from(new Set([configuredOrigin, canonicalOrigin].map((value) => {
+    try { return new URL(value).origin; } catch { return canonicalOrigin; }
+  })));
   try {
-    const upstream = await fetch(`https://forge.manus.ai/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(key)}&v=${encodeURIComponent(version)}&libraries=${encodeURIComponent(libraries)}`, { headers: { Origin: forgeOrigin, Referer: `${forgeOrigin}/` }, signal: AbortSignal.timeout(20_000) });
-    const body = await upstream.text();
-    res.status(upstream.status).setHeader("Content-Type", upstream.headers.get("content-type") || "application/javascript; charset=utf-8").setHeader("Cache-Control", "public, max-age=3600").send(body);
+    for (const forgeOrigin of origins) {
+      const upstream = await fetch(`https://forge.manus.ai/v1/maps/proxy/maps/api/js?key=${encodeURIComponent(key)}&v=${encodeURIComponent(version)}&libraries=${encodeURIComponent(libraries)}`, { headers: { Origin: forgeOrigin, Referer: `${forgeOrigin}/` }, signal: AbortSignal.timeout(20_000) });
+      const body = await upstream.text();
+      if (upstream.status === 401 && /project origin not matched/i.test(body) && forgeOrigin !== canonicalOrigin) continue;
+      return res.status(upstream.status).setHeader("Content-Type", upstream.headers.get("content-type") || "application/javascript; charset=utf-8").setHeader("Cache-Control", upstream.ok ? "public, max-age=3600" : "no-store").send(body);
+    }
+    return res.status(502).type("text/plain").send("Maps proxy rejected all configured project origins.");
   } catch (error) { res.status(502).type("text/plain").send(`Maps proxy unavailable: ${String(error)}`); }
 });
 app.post("/api/admin-auth", rateLimit("admin-auth", 5, 900), async (req, res) => { const password = typeof req.body?.password === "string" ? req.body.password : ""; if (!ADMIN_PASSWORD) return res.status(503).json({ ok: false, error: "ADMIN_PASSWORD is not configured" }); const supplied = Buffer.from(password); const expected = Buffer.from(ADMIN_PASSWORD); if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) return res.status(401).json({ ok: false }); const token = issueSessionToken(); await createSession(token); res.json({ ok: true, token }); });

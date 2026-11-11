@@ -115,6 +115,7 @@ interface MapViewProps {
   initialCenter?: google.maps.LatLngLiteral;
   initialZoom?: number;
   onMapReady?: (map: google.maps.Map) => void;
+  onMapError?: (error: Error) => void;
 }
 
 export function MapView({
@@ -122,6 +123,7 @@ export function MapView({
   initialCenter = { lat: 37.7749, lng: -122.4194 },
   initialZoom = 12,
   onMapReady,
+  onMapError,
 }: MapViewProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<google.maps.Map | null>(null);
@@ -130,11 +132,15 @@ export function MapView({
     try {
       if (!window.google?.maps) await loadMapScript();
     } catch (error) {
-      console.error("Google Maps initialization failed", error);
+      const normalized = error instanceof Error ? error : new Error("Google Maps could not be loaded.");
+      console.error("Google Maps initialization failed", normalized);
+      onMapError?.(normalized);
       return;
     }
     if (!mapContainer.current) {
-      console.error("Map container not found");
+      const error = new Error("The map container is unavailable.");
+      console.error(error.message);
+      onMapError?.(error);
       return;
     }
     map.current = new window.google.maps.Map(mapContainer.current, {
