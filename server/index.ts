@@ -276,7 +276,9 @@ function validSignedSession(token: string) {
   if (parts.length !== 3) return false;
   const payload = `${parts[0]}.${parts[1]}`;
   const expected = createHmac("sha256", ADMIN_PASSWORD).update(payload).digest("hex");
-  return parts[2] === expected && Number(parts[0]) > Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const signature = Buffer.from(parts[2], "hex");
+  const expectedSignature = Buffer.from(expected, "hex");
+  return signature.length === expectedSignature.length && timingSafeEqual(signature, expectedSignature) && Number(parts[0]) > Date.now() - 30 * 24 * 60 * 60 * 1000;
 }
 async function createSession(token: string) {
   memory.sessions.add(token);
@@ -293,14 +295,18 @@ async function createSession(token: string) {
   }
 }
 async function validSession(token: string) {
-  if (!token) return false;
-  if (validSignedSession(token)) return true;
-  if (memory.sessions.has(token)) return true;
-  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ token: string }>>(`agentplus_sessions?token=eq.${encodeURIComponent(token)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=token&limit=1`); return rows.length > 0; } catch { return false; } }
+  if (!token || !validSignedSession(token)) return false;
+  if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ token: string }>>(`agentplus_sessions?token=eq.${encodeURIComponent(token)}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=token&limit=1`); return rows.length > 0; } catch { /* try Redis if Supabase is unavailable */ } }
   if (redisEnabled) { try { return (await redis("GET", `ap:session:${token}`)) === "1"; } catch { return false; } }
-  return false;
+  return !supabaseEnabled && !redisEnabled && memory.sessions.has(token);
 }
-async function deleteSession(token: string) { memory.sessions.delete(token); if (supabaseEnabled) await supabaseRequest(`agentplus_sessions?token=eq.${encodeURIComponent(token)}`, { method: "DELETE" }); else if (redisEnabled) await redis("DEL", `ap:session:${token}`); }
+async function deleteSession(token: string) {
+  memory.sessions.delete(token);
+  const failures: unknown[] = [];
+  if (supabaseEnabled) { try { await supabaseRequest(`agentplus_sessions?token=eq.${encodeURIComponent(token)}`, { method: "DELETE" }); } catch (error) { failures.push(error); } }
+  if (redisEnabled) { try { await redis("DEL", `ap:session:${token}`); } catch (error) { failures.push(error); } }
+  if (failures.length) throw failures[0];
+}
 
 async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) { const header = req.headers.authorization || ""; const token = header.startsWith("Bearer ") ? header.slice(7) : ""; if (!(await validSession(token))) return res.status(401).json({ error: "Unauthorized" }); next(); }
 
