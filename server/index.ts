@@ -342,14 +342,7 @@ app.get("/api/maps-script", async (req, res) => {
   const version = typeof req.query.v === "string" ? req.query.v : "weekly";
   const canonicalOrigin = "https://agentsplus.online";
   const configuredOrigin = process.env.FORGE_MAP_ORIGIN || canonicalOrigin;
-  const authorizedProjectOrigins = [
-    canonicalOrigin,
-    "https://www.agentsplus.online",
-    "https://3000-i8m6n5rg589ic7zhtlumy-ca95f4b9.us5.manus.computer",
-    "https://newagentplusstore-joshuas-projects-f862f152.vercel.app",
-    "https://newagentplusstore-git-main-joshuas-projects-f862f152.vercel.app",
-  ];
-  const origins = Array.from(new Set([configuredOrigin, ...authorizedProjectOrigins].map((value) => {
+  const origins = Array.from(new Set([configuredOrigin, canonicalOrigin].map((value) => {
     try { return new URL(value).origin; } catch { return canonicalOrigin; }
   })));
   try {
