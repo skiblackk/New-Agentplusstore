@@ -193,6 +193,13 @@ async function saveSettings<T>(key: string, payload: T) {
   if (key === "notification_preferences") memory.notificationPreferences = payload as NotificationPreferences; else memory.paymentConfig = payload as PaymentConfig;
   if (supabaseEnabled) { try { await supabaseRequest("agentplus_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: key, payload, updated_at: new Date().toISOString() }) }); } catch { console.warn("Supabase settings table is not ready; using fallback storage."); } }
 }
+async function savePaymentSettings(payload: PaymentConfig) {
+  if (!supabaseEnabled && process.env.NODE_ENV === "production") throw new Error("Persistent settings storage is not configured.");
+  if (supabaseEnabled) {
+    await supabaseRequest("agentplus_settings", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: "payment_config", payload, updated_at: new Date().toISOString() }) });
+  }
+  memory.paymentConfig = payload;
+}
 async function getNotificationHistory() {
   if (supabaseEnabled) { try { const rows = await supabaseRequest<Array<{ payload: NotificationRecord }>>("agentplus_notification_history?select=payload&order=created_at.desc&limit=100"); return rows.map((row) => row.payload); } catch { /* schema may not be applied yet */ } }
   return memory.notifications;
@@ -373,7 +380,7 @@ app.patch("/api/notification-preferences", requireAuth, async (req, res) => { co
 app.get("/api/notification-history", requireAuth, async (_req, res) => res.json({ notifications: await getNotificationHistory() }));
 app.get("/api/payment-config", async (_req, res) => { const config = await getSettings("payment_config", defaultPaymentConfig); res.json({ config: { enabled: config.enabled, binanceId: config.binanceId, walletAddress: config.walletAddress, network: config.network, instructions: config.instructions } }); });
 app.get("/api/payment-config/manage", requireAuth, async (_req, res) => res.json({ config: await getSettings("payment_config", defaultPaymentConfig) }));
-app.patch("/api/payment-config", requireAuth, async (req, res) => { const body = req.body || {}; const config: PaymentConfig = { enabled: Boolean(body.enabled), binanceId: String(body.binanceId || "").slice(0, 120), walletAddress: String(body.walletAddress || "").slice(0, 180), network: String(body.network || "TRC20").slice(0, 30), instructions: String(body.instructions || defaultPaymentConfig.instructions).slice(0, 1000) }; await saveSettings("payment_config", config); res.json({ ok: true, config }); });
+app.patch("/api/payment-config", requireAuth, async (req, res) => { const body = req.body || {}; const config: PaymentConfig = { enabled: Boolean(body.enabled), binanceId: String(body.binanceId || "").slice(0, 120), walletAddress: String(body.walletAddress || "").slice(0, 180), network: String(body.network || "TRC20").slice(0, 30), instructions: String(body.instructions || defaultPaymentConfig.instructions).slice(0, 1000) }; try { await savePaymentSettings(config); return res.json({ ok: true, config }); } catch (error) { console.error("Payment configuration persistence failed:", error); return res.status(503).json({ error: "Payment settings could not be saved. Check the database connection and retry." }); } });
 app.post("/api/push/subscribe", requireAuth, async (req, res) => {
   const subscription = req.body?.subscription as PushSubscription;
   if (!pushEnabled) return res.status(503).json({ error: "Browser push is not configured" });
