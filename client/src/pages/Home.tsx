@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 import Chatbot from "@/components/Chatbot";
+import AgentPlusVoice from "@/components/AgentPlusVoice";
 import DemoLab from "@/components/DemoLab";
 import LiquidSculptureHero from "@/components/LiquidSculptureHero";
 import GlassFolder from "@/components/GlassFolderCards";
@@ -211,6 +212,7 @@ export default function Home() {
             <div className="hero-actions">
               <button className="button button-lime button-large button-shimmer" onClick={startFree}>Explore the agents <ArrowUpRight size={18} /></button>
               <button className="text-button light-button" onClick={showDemo}><span className="play-icon">▶</span> Talk through a rollout</button>
+              <AgentPlusVoice />
             </div>
             <div className="hero-proof">
               <div className="avatar-stack" aria-hidden="true">
