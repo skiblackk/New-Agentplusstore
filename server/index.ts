@@ -5,6 +5,8 @@ import { fileURLToPath } from "url";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { Response } from "express";
 import webpush from "web-push";
+import { RETELL_AGENT_ID } from "../shared/retell.js";
+import { extractRetellWebhook, formatRetellTranscript, retellOrderIntent, verifyRetellSignature } from "./retell.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,7 +16,15 @@ app.set("trust proxy", 1);
 const httpServer = createServer(app);
 
 app.use((req, res, next) => { const origin = req.headers.origin; if (origin) res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization"); res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS"); if (req.method === "OPTIONS") return res.sendStatus(204); next(); });
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({
+  limit: "1mb",
+  verify: (request, _response, buffer) => {
+    const expressRequest = request as express.Request & { rawBody?: Buffer };
+    if (expressRequest.originalUrl.split("?")[0] === "/api/retell/webhook") {
+      expressRequest.rawBody = Buffer.from(buffer);
+    }
+  },
+}));
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -24,6 +34,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const GROQ_KEY = process.env.GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY || "";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const RETELL_API_KEY = process.env.RETELL_API_KEY || "";
 const pushEnabled = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 if (pushEnabled) webpush.setVapidDetails("mailto:hello@agentsplus.online", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 const supabaseEnabled = Boolean(SUPABASE_URL && SUPABASE_KEY);
@@ -54,6 +65,13 @@ const leadEventClients = new Set<Response>();
 
 function broadcastLead(order: Order) {
   const payload = `event: lead\ndata: ${JSON.stringify(order)}\n\n`;
+  leadEventClients.forEach((client) => {
+    try { client.write(payload); } catch { leadEventClients.delete(client); }
+  });
+}
+
+function broadcastVoiceUpdate(order: Order) {
+  const payload = `event: voice\ndata: ${JSON.stringify({ id: order.id, updatedAt: order.transcriptUpdatedAt })}\n\n`;
   leadEventClients.forEach((client) => {
     try { client.write(payload); } catch { leadEventClients.delete(client); }
   });
@@ -127,10 +145,20 @@ async function getOrders() {
   if (redisEnabled) { try { const rows = await redis("LRANGE", "ap:orders", 0, 499) as string[]; return (rows || []).map((row) => JSON.parse(row) as Order); } catch { /* fallback */ } }
   return memory.orders;
 }
+async function getVoiceOrder(id: string) {
+  if (!supabaseEnabled) throw new Error("Supabase transcript storage is not configured");
+  const rows = await supabaseRequest<Array<{ payload: Order }>>(`agentplus_orders?select=payload&id=eq.${encodeURIComponent(id)}&limit=1`);
+  return rows[0]?.payload;
+}
 async function persistOrder(order: Order) {
   memory.orders = [order, ...memory.orders.filter((row) => row.id !== order.id)].slice(0, 500);
   if (supabaseEnabled) { try { await supabaseRequest("agentplus_orders", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: order.id, payload: order, created_at: order.timestamp || new Date().toISOString() }) }); return; } catch { console.warn("Supabase orders table is not ready; using fallback storage."); } }
   if (redisEnabled) { const rows = await getOrders(); await redis("DEL", "ap:orders"); for (const row of [order, ...rows.filter((value) => value.id !== order.id)].slice(0, 500).reverse()) await redis("LPUSH", "ap:orders", JSON.stringify(row)); }
+}
+async function persistVoiceOrder(order: Order) {
+  if (!supabaseEnabled) throw new Error("Supabase transcript storage is not configured");
+  await supabaseRequest("agentplus_orders", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ id: order.id, payload: order, created_at: order.timestamp || new Date().toISOString() }) });
+  memory.orders = [order, ...memory.orders.filter((row) => row.id !== order.id)].slice(0, 500);
 }
 async function deleteOrder(id: string) {
   memory.orders = memory.orders.filter((row) => row.id !== id);
@@ -433,6 +461,73 @@ app.get("/api/admin/lead-events", async (req, res) => {
   const heartbeat = setInterval(() => { try { res.write(`event: heartbeat\ndata: ${Date.now()}\n\n`); } catch { clearInterval(heartbeat); leadEventClients.delete(res); } }, 25_000);
   req.on("close", () => { clearInterval(heartbeat); leadEventClients.delete(res); });
 });
+app.post("/api/retell/webhook", async (req, res) => {
+  if (!RETELL_API_KEY) return res.status(503).json({ error: "Retell webhook signing is not configured." });
+  const rawBody = (req as express.Request & { rawBody?: Buffer }).rawBody;
+  const signature = req.get("X-Retell-Signature") || "";
+  if (!rawBody || !verifyRetellSignature(rawBody, signature, RETELL_API_KEY)) return res.status(401).json({ error: "Invalid Retell webhook signature." });
+
+  const { event, call } = extractRetellWebhook(req.body);
+  if (!call || !["transcript_updated", "call_analyzed"].includes(event)) return res.sendStatus(204);
+  const agentId = typeof call.agent_id === "string" ? call.agent_id : "";
+  if (agentId !== RETELL_AGENT_ID) return res.sendStatus(204);
+  const callId = typeof call.call_id === "string" ? call.call_id.trim().slice(0, 180) : "";
+  if (!callId) return res.status(400).json({ error: "Retell call ID is missing." });
+
+  const transcript = formatRetellTranscript(call);
+  const analysis = call.call_analysis && typeof call.call_analysis === "object" ? call.call_analysis as Record<string, unknown> : {};
+  const summary = typeof analysis.call_summary === "string" ? analysis.call_summary.trim().slice(0, 8_000) : typeof call.call_summary === "string" ? call.call_summary.trim().slice(0, 8_000) : "";
+  if (!transcript && !summary) return res.sendStatus(204);
+
+  if (!supabaseEnabled) return res.status(503).json({ error: "Supabase transcript storage is not configured." });
+  let existing: Order | undefined;
+  try { existing = await getVoiceOrder(`voice_${callId}`); }
+  catch (error) { console.error("Retell transcript lookup failed.", error); return res.status(503).json({ error: "Transcript storage is temporarily unavailable." }); }
+  const metadata = call.metadata && typeof call.metadata === "object" ? call.metadata as Record<string, unknown> : {};
+  const variables = {
+    ...(call.dynamic_variables && typeof call.dynamic_variables === "object" ? call.dynamic_variables as Record<string, unknown> : {}),
+    ...(call.retell_llm_dynamic_variables && typeof call.retell_llm_dynamic_variables === "object" ? call.retell_llm_dynamic_variables as Record<string, unknown> : {}),
+  };
+  const textValue = (...values: unknown[]) => values.find((value) => typeof value === "string" && value.trim()) as string | undefined;
+  const rawStart = call.start_timestamp;
+  const numericStart = typeof rawStart === "number" || (typeof rawStart === "string" && /^\d+$/.test(rawStart)) ? Number(rawStart) : NaN;
+  const startDate = Number.isFinite(numericStart) ? new Date(numericStart < 1_000_000_000_000 ? numericStart * 1000 : numericStart) : rawStart ? new Date(String(rawStart)) : new Date();
+  const timestamp = Number.isNaN(startDate.getTime()) ? new Date().toISOString() : startDate.toISOString();
+  const existingTranscript = typeof existing?.requirements === "string" ? existing.requirements.match(/Voice call transcript:\n([\s\S]*?)(?:\n\nRetell call summary:|$)/)?.[1] || "" : "";
+  const latestTranscript = event === "call_analyzed" ? transcript || existingTranscript : transcript.length >= existingTranscript.length ? transcript : existingTranscript;
+  const priorSummary = typeof existing?.retellSummary === "string" ? existing.retellSummary : "";
+  const latestSummary = summary || priorSummary;
+  const requirements = [latestTranscript ? `Voice call transcript:\n${latestTranscript}` : "Voice call transcript is unavailable.", latestSummary ? `\n\nRetell call summary:\n${latestSummary}` : ""].join("").slice(0, 40_000);
+  const order: Order = {
+    ...existing,
+    id: `voice_${callId}`,
+    retellCallId: callId,
+    transcriptUpdatedAt: new Date().toISOString(),
+    timestamp: existing?.timestamp || timestamp,
+    customerName: textValue(variables.customer_name, variables.name, metadata.customer_name, metadata.name) || (existing?.customerName && existing.customerName !== "Voice caller" ? existing.customerName : "Voice caller"),
+    customerEmail: existing?.customerEmail || textValue(variables.customer_email, variables.email, metadata.customer_email, metadata.email) || "",
+    customerPhone: existing?.customerPhone || textValue(variables.customer_phone, variables.phone, metadata.customer_phone, metadata.phone, call.from_number) || "",
+    requirements,
+    suggestedPackage: existing?.suggestedPackage || "AgentPlusAI voice inquiry",
+    suggestedPrice: existing?.suggestedPrice || "To be scoped",
+    packageReasoning: latestSummary || existing?.packageReasoning || "Inquiry captured by AgentPlusAI voice assistant; review the transcript before quoting.",
+    retellSummary: latestSummary,
+    orderIntent: retellOrderIntent(latestTranscript, analysis) === "likely" || existing?.orderIntent === "likely" ? "likely" : "review",
+    status: existing?.status || "new",
+    source: "retell-voice",
+    retellCallStatus: typeof call.call_status === "string" ? call.call_status : event,
+  };
+
+  try {
+    await persistVoiceOrder(order);
+    broadcastVoiceUpdate(order);
+    return res.status(200).json({ received: true });
+  } catch (error) {
+    console.error("Retell transcript persistence failed.", error);
+    return res.status(503).json({ error: "Transcript storage is temporarily unavailable." });
+  }
+});
+
 app.get("/api/subscribers", requireAuth, async (_req, res) => res.json({ subscribers: await getSubscribers() }));
 app.post("/api/subscribe", rateLimit("subscribe", 5, 600), async (req, res) => { const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : ""; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Valid email required" }); const subscriber: Subscriber = { id: `sub_${Date.now()}_${randomBytes(3).toString("hex")}`, email, timestamp: new Date().toISOString(), source: typeof req.body?.source === "string" ? req.body.source.slice(0, 120) : "blog" }; try { await persistSubscriber(subscriber); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 app.post("/api/inquiries", rateLimit("inquiries", 10, 60), async (req, res) => { const inquiry = req.body as Order; if (!inquiry?.requirements) return res.status(400).json({ error: "Missing requirements" }); let attribution: Record<string, unknown> = {}; const visitorId = typeof inquiry.visitorId === "string" ? inquiry.visitorId : ""; if (visitorId) { const visitor = (await getVisitors()).find((item) => item.id === visitorId); if (visitor) { const pages = Array.isArray(visitor.pagesVisited) ? visitor.pagesVisited as Array<{ page?: string }> : []; attribution = { source: visitor.source || sourceLabel(visitor.utmSource, visitor.referrer), campaign: visitor.campaign || visitor.utmCampaign, landingPage: visitor.landingPage || pages[0]?.page, device: visitor.device, country: visitor.country, visitorId }; } } const order = { ...attribution, ...inquiry, id: inquiry.id || `ord_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: inquiry.timestamp || new Date().toISOString(), status: inquiry.status || "new", source: inquiry.source || String(attribution.source || "chatbot"), service: inquiry.service || inquiry.suggestedPackage || "Other", orderEvents: [{ event: "order_submitted", timestamp: new Date().toISOString() }] }; try { await persistOrder(order); await persistAnalyticsEvent({ id: `evt_${Date.now()}_${randomBytes(3).toString("hex")}`, sessionId: visitorId || undefined, eventName: "order_submitted", service: String(order.service), source: String(order.source), createdAt: new Date().toISOString(), metadata: { orderId: order.id, source: order.source } }); broadcastLead(order); void sendLeadPush(order); res.json({ ok: true, id: order.id }); } catch (error) { res.status(500).json({ error: String(error) }); } });

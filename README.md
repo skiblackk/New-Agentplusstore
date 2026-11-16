@@ -27,7 +27,12 @@ Set server-side values in the `newagentplusstore` Vercel project:
 - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a strong unique `ADMIN_PASSWORD` are required for persistence and admin access.
 - `GROQ_API_KEY` enables AI responses.
 - `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` enable browser push; set both or neither.
+- `VITE_RETELL_VOICE_PUBLIC_KEY` enables Retell's official website voice widget; restrict the public key to `agentsplus.online` and `www.agentsplus.online`.
+- `RETELL_API_KEY` is server-only and must be a Retell key with webhook-signature verification support. The widget and server share the voice agent ID from `shared/retell.ts`.
+- Configure Retell to POST `transcript_updated` and `call_analyzed` events to `https://agentsplus.online/api/retell/webhook`; voice transcripts then appear in the authenticated Orders inbox.
+- Transcript webhooks require the existing Supabase service-role configuration and `agentplus_orders` table. If Supabase is unavailable, the endpoint returns a retryable error instead of losing transcripts in memory or Redis.
+- `VITE_RETELL_WHITE_LABEL_TOKEN` is optional and should only be set if Retell Support issues an official token; removing Retell attribution without that token is not supported.
 - `VITE_FRONTEND_FORGE_API_KEY` and `VITE_FRONTEND_FORGE_API_URL` are map-provider settings. The `VITE_` key is client-visible, so use a restricted public key.
 - `VITE_ANALYTICS_ENDPOINT` and `VITE_ANALYTICS_WEBSITE_ID` are optional. Analytics only loads when both are set.
 
-Never commit real `.env` files, Supabase service-role keys, admin passwords, Groq keys, or VAPID private keys.
+Never commit real `.env` files, Supabase service-role keys, admin passwords, Groq keys, Retell API keys, or VAPID private keys.

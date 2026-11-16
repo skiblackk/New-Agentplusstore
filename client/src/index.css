@@ -556,3 +556,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .chat-launcher-logo { width: 34px; height: 34px; display: block; flex: 0 0 34px; object-fit: contain; border: 1px solid rgba(255, 170, 95, .72); border-radius: 7px; background: #151514; }
 .chat-avatar img { object-fit: contain; background: #151514; }
+
+/* AgentPlusAI voice-call transcripts in the lead inbox. */
+.voice-transcript {
+  margin: 12px 0 10px;
+  padding: 12px;
+  border: 1px solid rgba(239, 114, 22, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 248, 240, 0.72);
+}
+.voice-transcript-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+  color: #5c3a21;
+  font-size: 11px;
+}
+.voice-transcript-heading span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #fff0d9;
+  color: #8b4c12;
+  font-size: 10px;
+  font-weight: 650;
+}
+.voice-transcript pre {
+  max-height: 330px;
+  overflow: auto;
+  margin: 0;
+  color: #45433d;
+  font: 11px/1.65 "DM Sans", sans-serif;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.voice-transcript > small {
+  display: block;
+  margin-top: 8px;
+  color: #858177;
+  font-size: 10px;
+}

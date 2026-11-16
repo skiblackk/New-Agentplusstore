@@ -6,7 +6,7 @@ import AgentStudio from "@/components/AgentStudio";
 import ResearchReports, { type ResearchReport } from "@/components/ResearchReports";
 import { pricingPackages } from "@/data/pricing";
 
-type Order = { id: string; timestamp?: string; customerName?: string; customerEmail?: string; customerPhone?: string; requirements: string; suggestedPackage: string; suggestedPrice: string; packageReasoning: string; status?: "new" | "contacted" | "requirements_collected" | "payment_pending" | "paid" | "in_development" | "testing" | "ready_for_deployment" | "deployed" | "completed" | "closed"; source?: string; followUpAt?: string; followUpSentAt?: string };
+type Order = { id: string; timestamp?: string; customerName?: string; customerEmail?: string; customerPhone?: string; requirements: string; suggestedPackage: string; suggestedPrice: string; packageReasoning: string; status?: "new" | "contacted" | "requirements_collected" | "payment_pending" | "paid" | "in_development" | "testing" | "ready_for_deployment" | "deployed" | "completed" | "closed"; source?: string; orderIntent?: "likely" | "review"; transcriptUpdatedAt?: string; retellCallId?: string; followUpAt?: string; followUpSentAt?: string };
 type Visitor = { id: string; timestamp?: string; device?: string; country?: string; pagesVisited?: unknown[]; duration?: number };
 type WhatsAppClick = { id: string; timestamp: string; service: string; visitorId?: string; page?: string; device?: string; referrer?: string; campaign?: string; source?: string; medium?: string; content?: string };
 type Subscriber = { id: string; email: string; timestamp: string; source?: string };
@@ -68,6 +68,7 @@ export default function Admin() {
     void refresh();
     const refreshTimer = window.setInterval(() => void refresh(), 30_000);
     const stream = new EventSource(`/api/admin/lead-events?token=${encodeURIComponent(token)}`);
+    let voiceRefreshTimer = 0;
     eventSourceRef.current = stream;
     stream.addEventListener("ready", () => setLiveStatus("live"));
     stream.addEventListener("lead", (event) => {
@@ -77,8 +78,12 @@ export default function Admin() {
         void refresh();
       } catch { setLiveStatus("fallback"); }
     });
+    stream.addEventListener("voice", () => {
+      if (voiceRefreshTimer) return;
+      voiceRefreshTimer = window.setTimeout(() => { voiceRefreshTimer = 0; void refresh(); }, 1_200);
+    });
     stream.onerror = () => setLiveStatus("fallback");
-    return () => { window.clearInterval(refreshTimer); stream.close(); eventSourceRef.current = null; };
+    return () => { window.clearInterval(refreshTimer); if (voiceRefreshTimer) window.clearTimeout(voiceRefreshTimer); stream.close(); eventSourceRef.current = null; };
   }, [token]);
   useEffect(() => {
     if (!token || !("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) { if (token) setPushStatus("unsupported"); return; }
@@ -113,7 +118,7 @@ export default function Admin() {
   async function savePaymentConfig(next: PaymentConfig) { const response = await fetch("/api/payment-config", { method: "PATCH", headers: authHeaders, body: JSON.stringify(next) }); const result = await response.json() as { config?: PaymentConfig; error?: string }; if (!response.ok || !result.config) throw new Error(result.error || "Payment settings could not be saved."); setPaymentConfig(result.config); }
   async function saveResearchReport(report: Partial<ResearchReport> & { id?: string }) { const response = await fetch("/api/research-reports", { method: report.id ? "PATCH" : "POST", headers: authHeaders, body: JSON.stringify(report) }); if (response.ok) await refresh(); }
   async function deleteResearchReport(report: ResearchReport) { await fetch("/api/research-reports", { method: "DELETE", headers: authHeaders, body: JSON.stringify({ id: report.id }) }); await refresh(); }
-  const visibleOrders = useMemo(() => { const query = leadQuery.trim().toLowerCase(); return orders.filter((order) => leadFilter === "all" || order.status === leadFilter).filter((order) => !query || [order.customerName, order.customerEmail, order.customerPhone, order.suggestedPackage, order.source].some((value) => String(value || "").toLowerCase().includes(query))).sort((a, b) => leadSort === "oldest" ? (a.timestamp || "").localeCompare(b.timestamp || "") : (b.timestamp || "").localeCompare(a.timestamp || "")); }, [orders, leadFilter, leadSort, leadQuery]);
+  const visibleOrders = useMemo(() => { const query = leadQuery.trim().toLowerCase(); return orders.filter((order) => leadFilter === "all" || order.status === leadFilter).filter((order) => !query || [order.customerName, order.customerEmail, order.customerPhone, order.suggestedPackage, order.source, order.requirements].some((value) => String(value || "").toLowerCase().includes(query))).sort((a, b) => leadSort === "oldest" ? (a.timestamp || "").localeCompare(b.timestamp || "") : (b.timestamp || "").localeCompare(a.timestamp || "")); }, [orders, leadFilter, leadSort, leadQuery]);
   async function askAtlas() { const content = atlasInput.trim(); if (!content || atlasLoading) return; const next = [...atlasMessages, { role: "user" as const, content }]; setAtlasMessages(next); setAtlasInput(""); setAtlasLoading(true); const response = await fetch("/api/chat", { method: "POST", headers: authHeaders, body: JSON.stringify({ mode: "admin", messages: next }) }); if (response.status === 401) { setAtlasLoading(false); logout(); return; } const data = await response.json() as { content?: string }; const messages = [...next, { role: "assistant" as const, content: data.content || "Atlas is unavailable." }]; setAtlasMessages(messages); await fetch("/api/atlas-memory", { method: "POST", headers: authHeaders, body: JSON.stringify({ messages }) }); setAtlasLoading(false); }
   const stats = useMemo(() => ({ pipeline: orders.filter((order) => order.status !== "closed").length, closed: orders.filter((order) => order.status === "closed").length, visitors: visitors.length, conversion: visitors.length ? Math.round((orders.length / visitors.length) * 100) : 0 }), [orders, visitors]);
   if (!token) return <main className="admin-shell admin-login"><div className="admin-login-card"><div className="admin-logo"><ShieldCheck size={24} /></div><span className="admin-kicker">AgentPlus Command Center</span><h1>Welcome back.</h1><p>Private workspace for leads, visitors, and the next useful move.</p><form onSubmit={login}><label>Admin password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoFocus /></label>{error && <span className="admin-error">{error}</span>}<button className="button button-dark" type="submit" disabled={loading}>{loading ? "Checking access…" : "Unlock dashboard"} {!loading && <ArrowUpRight size={16} />}</button></form><small className="admin-auth-note"><ShieldCheck size={13} /> Server-side authentication · 30-day protected session</small><Link href="/" className="admin-back">← Return to storefront</Link></div></main>;
@@ -186,5 +191,22 @@ function SettingsPanel({ paymentConfig, savePaymentConfig, preferences, savePref
   }
   return <section className="admin-panel settings-panel"><div className="panel-heading"><div><span className="admin-kicker">Private configuration</span><h2>Payment & notifications</h2></div></div><NotificationPanel preferences={preferences} history={[]} savePreferences={savePreferences} /><div className="payment-settings"><div className="admin-kicker">Binance USDT payment</div><h3>Configure how customers pay</h3><label className="settings-check"><input type="checkbox" checked={payment.enabled} onChange={(event) => { setPayment({ ...payment, enabled: event.target.checked }); setPaymentSaveMessage(""); }} /> Enable Binance payment instructions</label><input value={payment.binanceId} onChange={(event) => { setPayment({ ...payment, binanceId: event.target.value }); setPaymentSaveMessage(""); }} placeholder="Binance Pay ID" /><input value={payment.walletAddress} onChange={(event) => { setPayment({ ...payment, walletAddress: event.target.value }); setPaymentSaveMessage(""); }} placeholder="USDT wallet address" /><input value={payment.network} onChange={(event) => { setPayment({ ...payment, network: event.target.value }); setPaymentSaveMessage(""); }} placeholder="Network e.g. TRC20" /><textarea value={payment.instructions} onChange={(event) => { setPayment({ ...payment, instructions: event.target.value }); setPaymentSaveMessage(""); }} rows={4} placeholder="Payment instructions" /><button className="button button-dark" disabled={savingPayment} onClick={() => void submitPaymentConfig()}>{savingPayment ? "Saving…" : "Save payment configuration"}</button>{paymentSaveMessage && <p role="status">{paymentSaveMessage}</p>}<small>This currently displays manual payment instructions. Direct Binance Pay checkout and automatic transaction verification are not connected yet.</small></div></section>;
 }
-function OrdersList({ orders, updateOrder, deleteOrder }: { orders: Order[]; updateOrder: (order: Order, status: Order["status"]) => void; deleteOrder: (order: Order) => void }) { return <div className="orders-list">{orders.length ? orders.map((order) => <div className="order-row" key={order.id}><div className="order-main"><span className={`order-status status-${order.status || "new"}`}>{order.status || "new"}</span><strong>{order.customerName || "Unnamed inquiry"}</strong><p>{order.requirements}</p><small>{order.suggestedPackage || "Package to be scoped"} · {order.suggestedPrice || "Custom"} · via {order.source || "website"}</small></div><div className="order-actions"><button onClick={() => updateOrder(order, nextOrderStatus(order.status))}><Check size={14} /> {order.status === "completed" ? "Completed" : "Advance status"}</button><button className="danger" onClick={() => deleteOrder(order)}><Trash2 size={14} /></button></div></div>) : <EmptyState icon={<MessageSquare size={22} />} title="Your inbox is clear" body="Qualified chatbot and contact inquiries will land here." />}</div>; }
+function OrdersList({ orders, updateOrder, deleteOrder }: { orders: Order[]; updateOrder: (order: Order, status: Order["status"]) => void; deleteOrder: (order: Order) => void }) {
+  return <div className="orders-list">{orders.length ? orders.map((order) => {
+    const isVoice = order.source === "retell-voice";
+    return <div className={`order-row${isVoice ? " voice-order-row" : ""}`} key={order.id}>
+      <div className="order-main">
+        <span className={`order-status status-${order.status || "new"}`}>{order.status || "new"}</span>
+        <strong>{order.customerName || "Unnamed inquiry"}</strong>
+        {isVoice ? <div className="voice-transcript">
+          <div className="voice-transcript-heading"><strong>AgentPlusAI call transcript</strong>{order.orderIntent === "likely" && <span>Possible order — review before confirming</span>}</div>
+          <pre>{order.requirements}</pre>
+          {order.transcriptUpdatedAt && <small>Last transcript update: {new Date(order.transcriptUpdatedAt).toLocaleString()}</small>}
+        </div> : <p>{order.requirements}</p>}
+        <small>{order.suggestedPackage || "Package to be scoped"} · {order.suggestedPrice || "Custom"} · via {isVoice ? "AgentPlusAI voice" : order.source || "website"}</small>
+      </div>
+      <div className="order-actions"><button onClick={() => updateOrder(order, nextOrderStatus(order.status))}><Check size={14} /> {order.status === "completed" ? "Completed" : "Advance status"}</button><button className="danger" onClick={() => deleteOrder(order)}><Trash2 size={14} /></button></div>
+    </div>;
+  }) : <EmptyState icon={<MessageSquare size={22} />} title="Your inbox is clear" body="Qualified chatbot and contact inquiries will land here." />}</div>;
+}
 function EmptyState({ icon, title, body }: { icon: ReactNode; title: string; body: string }) { return <div className="empty-state">{icon}<strong>{title}</strong><p>{body}</p></div>; }
