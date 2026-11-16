@@ -1,75 +1,57 @@
 import { useEffect, useState } from "react";
-import { Mic } from "lucide-react";
-import { RETELL_AGENT_ID } from "../../../shared/retell.js";
+import { Mic, X } from "lucide-react";
+import { RETELL_ORB_SHARE_URL } from "@shared/retell";
 import "./AgentPlusVoice.css";
 
-const RETELL_WIDGET_URL = "https://dashboard.retellai.com/retell-widget-v2.js";
-const voicePublicKey = import.meta.env.VITE_RETELL_VOICE_PUBLIC_KEY?.trim() || "";
-const whiteLabelToken = import.meta.env.VITE_RETELL_WHITE_LABEL_TOKEN?.trim() || "";
-let retellWidgetLoad: Promise<void> | null = null;
-
-function loadRetellWidget(): Promise<void> {
-  const existing = document.getElementById("retell-widget") as HTMLScriptElement | null;
-  if (existing?.dataset.loaded === "true") return Promise.resolve();
-  if (retellWidgetLoad) return retellWidgetLoad;
-
-  if (existing) existing.remove();
-  const script = document.createElement("script");
-  script.id = "retell-widget";
-  script.src = RETELL_WIDGET_URL;
-  script.async = true;
-  script.dataset.voiceAgentId = RETELL_AGENT_ID;
-  script.dataset.voicePublicKey = voicePublicKey;
-  script.dataset.title = "AgentPlusAI";
-  script.dataset.logoUrl = `${window.location.origin}/agentplus-logo.jpeg`;
-  script.dataset.fabText = "Talk to AgentPlusAI";
-  script.dataset.fabIconUrl = `${window.location.origin}/agentplus-logo.jpeg`;
-  if (whiteLabelToken) script.dataset.whiteLabel = whiteLabelToken;
-
-  retellWidgetLoad = new Promise<void>((resolve, reject) => {
-    script.addEventListener("load", () => {
-      script.dataset.loaded = "true";
-      document.body.classList.add("retell-voice-ready");
-      resolve();
-    }, { once: true });
-    script.addEventListener("error", () => {
-      script.remove();
-      retellWidgetLoad = null;
-      reject(new Error("Retell voice widget failed to load"));
-    }, { once: true });
-    document.head.appendChild(script);
-  });
-  return retellWidgetLoad;
-}
-
 export default function AgentPlusVoice() {
-  const [status, setStatus] = useState<"setup" | "loading" | "ready" | "error">(voicePublicKey ? "loading" : "setup");
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!voicePublicKey) {
-      setStatus("setup");
-      return;
-    }
-    let active = true;
-    void loadRetellWidget().then(() => {
-      if (active) setStatus("ready");
-    }).catch(() => {
-      if (active) setStatus("error");
-    });
-    return () => { active = false; };
-  }, []);
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
 
-  if (status === "ready") {
-    return <span className="agentplus-voice-state is-ready" role="status"><Mic size={15} aria-hidden="true" /> Use the “Talk to AgentPlusAI” voice button on this page.</span>;
-  }
+  return (
+    <>
+      <button className="agentplus-voice-trigger" type="button" onClick={() => setOpen(true)}>
+        <Mic size={17} aria-hidden="true" />
+        Talk to AgentPlusAI
+      </button>
 
-  if (status === "loading") {
-    return <span className="agentplus-voice-state" role="status"><Mic size={15} aria-hidden="true" /> Preparing AgentPlusAI voice…</span>;
-  }
-
-  if (status === "error") {
-    return <span className="agentplus-voice-state is-error" role="status">AgentPlusAI voice could not load. Please try again later.</span>;
-  }
-
-  return <span className="agentplus-voice-state is-setup" role="status"><Mic size={15} aria-hidden="true" /> AgentPlusAI voice is awaiting Retell setup.</span>;
+      {open && (
+        <div className="agentplus-voice-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
+          <section className="agentplus-voice-dialog" role="dialog" aria-modal="true" aria-labelledby="agentplus-voice-title">
+            <div className="agentplus-voice-dialog-head">
+              <div>
+                <p className="eyebrow">AgentPlusAI</p>
+                <h2 id="agentplus-voice-title">Talk with Aria</h2>
+                <p className="agentplus-voice-help">Allow microphone access, then start or end the conversation using the controls below.</p>
+              </div>
+              <button className="agentplus-voice-close" type="button" onClick={() => setOpen(false)} aria-label="Close voice assistant">
+                <X size={20} aria-hidden="true" />
+              </button>
+            </div>
+            <div className="agentplus-voice-frame-wrap">
+              <iframe
+                title="AgentPlusAI voice assistant"
+                src={RETELL_ORB_SHARE_URL}
+                allow="microphone; autoplay"
+                sandbox="allow-forms allow-modals allow-same-origin allow-scripts"
+              />
+            </div>
+            <p className="agentplus-voice-attribution">Voice service provided by Retell AI.</p>
+          </section>
+        </div>
+      )}
+    </>
+  );
 }
