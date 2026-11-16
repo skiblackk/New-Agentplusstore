@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Mic, X } from "lucide-react";
 import { RETELL_ORB_SHARE_URL } from "@shared/retell";
 import "./AgentPlusVoice.css";
@@ -27,7 +28,7 @@ export default function AgentPlusVoice() {
         Talk to AgentPlusAI
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="agentplus-voice-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}>
           <section className="agentplus-voice-dialog" role="dialog" aria-modal="true" aria-labelledby="agentplus-voice-title">
             <div className="agentplus-voice-dialog-head">
@@ -50,7 +51,8 @@ export default function AgentPlusVoice() {
             </div>
             <p className="agentplus-voice-attribution">Voice service provided by Retell AI.</p>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
