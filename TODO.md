@@ -17,5 +17,4 @@
 
 
 ## Visitor country reporting
-- [ ] **Visitor country reporting is implemented and documented.** On Vercel, derive an ISO country code from the platform request header rather than trusting browser input; store country-level data only, show counts and filters in the Admin Visitors tab and lead cards, disclose the approximate signal in the privacy page, and leave older unlocated records as unknown.
-- [ ] **Retell production delivery is configured and verified.** The signed webhook route and Admin inbox are implemented, but the production database currently has no voice-call leads; configure the server-only webhook signing key and Retell event delivery, then verify with a real call.
+- [x] **Visitor country reporting is implemented and documented.** On Vercel, derive an ISO country code from the platform request header rather than trusting browser input; store country-level data only, show counts and filters in the Admin Visitors tab and lead cards, disclose the approximate signal in the privacy page, and leave older unlocated records as unknown.
