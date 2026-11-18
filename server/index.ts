@@ -7,6 +7,7 @@ import type { Response } from "express";
 import webpush from "web-push";
 import { RETELL_AGENT_ID } from "../shared/retell.js";
 import { extractRetellWebhook, formatRetellTranscript, retellOrderIntent, verifyRetellSignature } from "./retell.js";
+import { getVercelCountryCode } from "./geo.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -507,6 +508,7 @@ app.post("/api/retell/webhook", async (req, res) => {
     customerName: textValue(variables.customer_name, variables.name, metadata.customer_name, metadata.name) || (existing?.customerName && existing.customerName !== "Voice caller" ? existing.customerName : "Voice caller"),
     customerEmail: existing?.customerEmail || textValue(variables.customer_email, variables.email, metadata.customer_email, metadata.email) || "",
     customerPhone: existing?.customerPhone || textValue(variables.customer_phone, variables.phone, metadata.customer_phone, metadata.phone, call.from_number) || "",
+    country: existing?.country || textValue(variables.customer_country, variables.country, metadata.customer_country, metadata.country),
     requirements,
     suggestedPackage: existing?.suggestedPackage || "AgentPlusAI voice inquiry",
     suggestedPrice: existing?.suggestedPrice || "To be scoped",
@@ -537,8 +539,23 @@ app.delete("/api/orders", requireAuth, async (req, res) => { const id = req.body
 
 app.get("/api/visitors", requireAuth, async (_req, res) => res.json({ visitors: await getVisitors() }));
 app.delete("/api/visitors", requireAuth, async (req, res) => { const id = req.body?.id as string; if (!id) return res.status(400).json({ error: "Missing id" }); await deleteVisitor(id); res.json({ ok: true }); });
-app.post("/api/track", async (req, res) => { const visitor = req.body?.visitor as Visitor; if (!visitor?.id) return res.status(400).json({ error: "Missing visitor" }); try { await persistVisitor(visitor); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
-app.post("/api/analytics/events", async (req, res) => { const body = req.body || {}; if (!body.eventName || typeof body.eventName !== "string") return res.status(400).json({ error: "eventName is required" }); const event: AnalyticsEvent = { id: `evt_${Date.now()}_${randomBytes(3).toString("hex")}`, sessionId: typeof body.sessionId === "string" ? body.sessionId.slice(0, 120) : undefined, eventName: body.eventName.slice(0, 80), service: typeof body.service === "string" ? body.service.slice(0, 120) : undefined, page: typeof body.page === "string" ? body.page.slice(0, 240) : undefined, source: sourceLabel(body.utmSource, body.referrer), referrer: typeof body.referrer === "string" ? body.referrer.slice(0, 500) : undefined, utmSource: typeof body.utmSource === "string" ? body.utmSource.slice(0, 100) : undefined, utmMedium: typeof body.utmMedium === "string" ? body.utmMedium.slice(0, 100) : undefined, utmCampaign: typeof body.utmCampaign === "string" ? body.utmCampaign.slice(0, 160) : undefined, utmContent: typeof body.utmContent === "string" ? body.utmContent.slice(0, 160) : undefined, utmTerm: typeof body.utmTerm === "string" ? body.utmTerm.slice(0, 160) : undefined, deviceType: typeof body.deviceType === "string" ? body.deviceType.slice(0, 40) : undefined, browser: typeof body.browser === "string" ? body.browser.slice(0, 100) : undefined, os: typeof body.os === "string" ? body.os.slice(0, 100) : undefined, country: typeof body.country === "string" ? body.country.slice(0, 100) : undefined, metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : undefined, createdAt: new Date().toISOString() }; try { await persistAnalyticsEvent(event); res.json({ ok: true, id: event.id }); } catch (error) { res.status(500).json({ error: String(error) }); } });
+app.post("/api/track", async (req, res) => {
+  const visitor = req.body?.visitor as Visitor;
+  if (!visitor?.id) return res.status(400).json({ error: "Missing visitor" });
+  const country = getVercelCountryCode(req.get("x-vercel-ip-country"), process.env.VERCEL === "1");
+  const trackedVisitor = { ...visitor };
+  delete trackedVisitor.country;
+  if (country) trackedVisitor.country = country;
+  try { await persistVisitor(trackedVisitor); res.json({ ok: true }); }
+  catch (error) { res.status(500).json({ error: String(error) }); }
+});
+app.post("/api/analytics/events", async (req, res) => {
+  const body = req.body || {};
+  if (!body.eventName || typeof body.eventName !== "string") return res.status(400).json({ error: "eventName is required" });
+  const event: AnalyticsEvent = { id: `evt_${Date.now()}_${randomBytes(3).toString("hex")}`, sessionId: typeof body.sessionId === "string" ? body.sessionId.slice(0, 120) : undefined, eventName: body.eventName.slice(0, 80), service: typeof body.service === "string" ? body.service.slice(0, 120) : undefined, page: typeof body.page === "string" ? body.page.slice(0, 240) : undefined, source: sourceLabel(body.utmSource, body.referrer), referrer: typeof body.referrer === "string" ? body.referrer.slice(0, 500) : undefined, utmSource: typeof body.utmSource === "string" ? body.utmSource.slice(0, 100) : undefined, utmMedium: typeof body.utmMedium === "string" ? body.utmMedium.slice(0, 100) : undefined, utmCampaign: typeof body.utmCampaign === "string" ? body.utmCampaign.slice(0, 160) : undefined, utmContent: typeof body.utmContent === "string" ? body.utmContent.slice(0, 160) : undefined, utmTerm: typeof body.utmTerm === "string" ? body.utmTerm.slice(0, 160) : undefined, deviceType: typeof body.deviceType === "string" ? body.deviceType.slice(0, 40) : undefined, browser: typeof body.browser === "string" ? body.browser.slice(0, 100) : undefined, os: typeof body.os === "string" ? body.os.slice(0, 100) : undefined, country: getVercelCountryCode(req.get("x-vercel-ip-country"), process.env.VERCEL === "1"), metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : undefined, createdAt: new Date().toISOString() };
+  try { await persistAnalyticsEvent(event); res.json({ ok: true, id: event.id }); }
+  catch (error) { res.status(500).json({ error: String(error) }); }
+});
 app.get("/api/analytics", requireAuth, async (_req, res) => res.json(await analyticsSnapshot()));
 app.post("/api/whatsapp-click", async (req, res) => { const body = req.body || {}; const click: WhatsAppClick = { id: `wa_${Date.now()}_${randomBytes(3).toString("hex")}`, timestamp: new Date().toISOString(), service: typeof body.service === "string" ? body.service.slice(0, 80) : "General", visitorId: typeof body.visitorId === "string" ? body.visitorId.slice(0, 120) : undefined, page: typeof body.page === "string" ? body.page.slice(0, 120) : undefined, device: typeof body.device === "string" ? body.device.slice(0, 40) : undefined, referrer: typeof body.referrer === "string" ? body.referrer.slice(0, 240) : undefined, campaign: typeof body.campaign === "string" ? body.campaign.slice(0, 100) : "Direct", source: typeof body.source === "string" ? body.source.slice(0, 160) : "Direct", medium: typeof body.medium === "string" ? body.medium.slice(0, 80) : "none", content: typeof body.content === "string" ? body.content.slice(0, 120) : undefined }; try { await persistWhatsappClick(click); res.json({ ok: true }); } catch (error) { res.status(500).json({ error: String(error) }); } });
 app.get("/api/whatsapp-clicks", requireAuth, async (_req, res) => res.json({ clicks: await getWhatsappClicks() }));
