@@ -34,8 +34,63 @@ const welcome: Message = { role: "assistant", content: "Hi — I’m Aria, Agent
 function whatsappUrl(service: string) { return `https://wa.me/254729053520?text=${encodeURIComponent(`Hi AgentPlus, I’m interested in ${service}. I’d like to learn how it could help my business.`)}`; }
 function trackAnalytics(eventName: string, service?: string) { const params = new URLSearchParams(window.location.search); void fetch("/api/analytics/events", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventName, service, page: window.location.pathname, sessionId: localStorage.getItem("agentplus_visitor_id") || undefined, referrer: document.referrer, utmSource: params.get("utm_source") || undefined, utmMedium: params.get("utm_medium") || undefined, utmCampaign: params.get("utm_campaign") || undefined, deviceType: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop" }) }).catch(() => undefined); }
 function trackWhatsApp(service: string) { const params = new URLSearchParams(window.location.search); void fetch("/api/whatsapp-click", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ service, visitorId: localStorage.getItem("agentplus_visitor_id") || undefined, page: window.location.pathname, device: /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop", referrer: document.referrer, campaign: params.get("utm_campaign") || "Direct", source: params.get("utm_source") || document.referrer || "Direct", medium: params.get("utm_medium") || "none", content: params.get("utm_content") || undefined }) }).catch(() => undefined); }
-export default function Chatbot() { const [open, setOpen] = useState(false); const [messages, setMessages] = useState<Message[]>([welcome]); const [input, setInput] = useState(""); const [loading, setLoading] = useState(false); const [recommendation, setRecommendation] = useState<Recommendation | null>(null); const [lead, setLead] = useState({ name: "", email: "", phone: "" }); const [submitted, setSubmitted] = useState(false); const [submitError, setSubmitError] = useState(""); useEffect(() => { const timer = window.setTimeout(() => setOpen(true), 4000); return () => window.clearTimeout(timer); }, []); useEffect(() => { if (open && !sessionStorage.getItem("agentplus_aria_started")) { sessionStorage.setItem("agentplus_aria_started", "1"); trackAnalytics("aria_started"); } }, [open]);
-  async function send() { const content = input.trim(); if (!content || loading) return; trackAnalytics("quote_requested"); const next = [...messages, { role: "user" as const, content }]; setMessages(next); setInput(""); setLoading(true); try { const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: next }) }); const data = await response.json() as { content?: string; error?: string }; const reply = data.content || data.error || "I’m unable to answer right now. Please reach us on WhatsApp."; const parsed = extractOrderRecommendation(reply); if (parsed.recommendation) setRecommendation(parsed.recommendation); setMessages([...next, { role: "assistant", content: parsed.cleanReply }]); } catch { setMessages([...next, { role: "assistant", content: "I’m having trouble connecting right now. Please reach our team directly on WhatsApp for help." }]); } finally { setLoading(false); } }
-  async function submitLead(event: FormEvent) { event.preventDefault(); if (!recommendation || !lead.name || !lead.email) return; setSubmitError(""); const response = await fetch("/api/inquiries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ customerName: lead.name, customerEmail: lead.email, customerPhone: lead.phone, visitorId: localStorage.getItem("agentplus_visitor_id") || undefined, requirements: recommendation.requirements, suggestedPackage: recommendation.suggestedPackage, suggestedPrice: recommendation.suggestedPrice, packageReasoning: recommendation.packageReasoning, service: recommendation.suggestedPackage, source: "chatbot", conversation: messages, conversationId: sessionStorage.getItem("agentplus_aria_started") || undefined }) }); if (response.ok) { trackAnalytics("order_submitted", recommendation.suggestedPackage); setSubmitted(true); } else { setSubmitError("We couldn’t send the order request. Please try again or continue on WhatsApp."); } }
-  const recommendedWhatsApp = recommendation ? whatsappUrl(recommendation.suggestedPackage) : "";
-  return <><button className={`chat-launcher ${open ? "is-open" : ""}`} onClick={() => setOpen((value) => !value)} aria-label={open ? "Close Aria customer care" : "Open Aria customer care"}>{open ? <X size={21} /> : <img className="chat-launcher-logo" src="/aria-logo.jpg" alt="" aria-hidden="true" />}<span>{open ? "Close" : "Ask Aria"}</span></button>{open && <aside className="chat-panel" aria-label="Aria customer care"><div className="chat-header"><div className="chat-avatar"><img src="/aria-logo.jpg" alt="Aria AI Agent by AgentPlus" /></div><div><strong>Aria</strong><span>Customer care · ready to help</span></div><a className="chat-human-link" href={whatsappUrl(recommendation?.suggestedPackage || "AgentPlus")} onClick={() => trackWhatsApp(recommendation?.suggestedPackage || "AgentPlus")} target="_blank" rel="noreferrer">WhatsApp</a><button onClick={() => setOpen(false)} aria-label="Close"><ChevronDown size={18} /></button></div><div className="aria-role-note"><Sparkles size={13} /><span>Friendly guidance, package advice, and order support.</span></div><div className="chat-messages">{messages.map((message, index) => <div className={`chat-message ${message.role}`} key={`${message.role}-${index}`}>{message.role === "assistant" ? <div className="aria-answer">{message.content}</div> : <div>{message.content}</div>}</div>)}{loading && <div className="chat-message assistant chat-loading"><span /><span /><span /></div>}{recommendation && <div className="aria-whatsapp-offer"><div><strong>Ready to get started?</strong><small>Aria recommends {recommendation.suggestedPackage} · {recommendation.suggestedPrice}</small></div><a href={recommendedWhatsApp} onClick={() => trackWhatsApp(recommendation.suggestedPackage)} target="_blank" rel="noreferrer">Continue on WhatsApp <Send size={13} /></a></div>}{recommendation && !submitted && <form className="chat-lead-form" onSubmit={submitLead}><strong>Place your order request</strong><input placeholder="Your name" value={lead.name} onChange={(event) => setLead({ ...lead, name: event.target.value })} required /><input type="email" placeholder="Work email" value={lead.email} onChange={(event) => setLead({ ...lead, email: event.target.value })} required /><input placeholder="Phone / WhatsApp (optional)" value={lead.phone} onChange={(event) => setLead({ ...lead, phone: event.target.value })} /><button className="button button-dark" type="submit">Send order request <Send size={14} /></button>{submitError && <small className="chat-submit-error">{submitError}</small>}</form>}{submitted && <div className="chat-success"><Bot size={17} /> Thanks — your order request is with the AgentPlus team.</div>}</div><div className="chat-composer"><input value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void send(); }} placeholder="Ask Aria about services, pricing, or getting started…" /><button onClick={() => void send()} aria-label="Send message"><Send size={16} /></button></div></aside>}</>; }
+export default function Chatbot() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setOpen(true), 4000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (open && !sessionStorage.getItem("agentplus_aria_started")) {
+      sessionStorage.setItem("agentplus_aria_started", "1");
+      trackAnalytics("aria_started");
+    }
+  }, [open]);
+
+  return (
+    <>
+      <button
+        className={`chat-launcher ${open ? "is-open" : ""}`}
+        onClick={() => setOpen((value) => !value)}
+        aria-label={open ? "Close Aria customer care" : "Open Aria customer care"}
+      >
+        {open ? <X size={21} /> : <img className="chat-launcher-logo" src="/aria-logo.jpg" alt="" aria-hidden="true" />}
+        <span>{open ? "Close" : "Ask Aria"}</span>
+      </button>
+      {open && (
+        <aside className="chat-panel" aria-label="Aria customer care">
+          <div className="chat-header">
+            <div className="chat-avatar">
+              <img src="/aria-logo.jpg" alt="Aria AI Agent by AgentPlus" />
+            </div>
+            <div>
+              <strong>Aria</strong>
+              <span>Customer care · ready to help</span>
+            </div>
+            <a
+              className="chat-human-link"
+              href={whatsappUrl("AgentPlus")}
+              onClick={() => trackWhatsApp("AgentPlus")}
+              target="_blank"
+              rel="noreferrer"
+            >
+              WhatsApp
+            </a>
+            <button onClick={() => setOpen(false)} aria-label="Close">
+              <ChevronDown size={18} />
+            </button>
+          </div>
+          <iframe
+            className="retell-orb-frame"
+            src="https://agent.retellai.com/orb/agent_79afac06a3ca9951c7495cbc19?token=6a4cf1e8a12c8099278a87883dd1bc42"
+            title="Talk to Aria with Retell AI"
+            allow="microphone; autoplay"
+            loading="lazy"
+          />
+        </aside>
+      )}
+    </>
+  );
+}
