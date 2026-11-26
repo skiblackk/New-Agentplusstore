@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Bot, ChevronDown, Send, Sparkles, X } from "lucide-react";
 
+const RETELL_V4_ORB_URL = "https://agent.retellai.com/orb/agent_79afac06a3ca9951c7495cbc19?token=6a4cf1e8a12c8099278a87883dd1bc42";
+
 type Recommendation = { requirements: string; suggestedPackage: string; suggestedPrice: string; packageReasoning: string };
 type Message = { role: "user" | "assistant"; content: string };
 function extractOrderRecommendation(reply: string): { recommendation: Recommendation | null; cleanReply: string } {
@@ -84,7 +86,7 @@ export default function Chatbot() {
           </div>
           <iframe
             className="retell-orb-frame"
-            src="https://agent.retellai.com/orb/agent_79afac06a3ca9951c7495cbc19?token=6a4cf1e8a12c8099278a87883dd1bc42"
+            src={RETELL_V4_ORB_URL}
             title="Talk to Aria with Retell AI"
             allow="microphone; autoplay"
             loading="lazy"
